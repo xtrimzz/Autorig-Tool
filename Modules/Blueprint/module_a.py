@@ -8,6 +8,8 @@
 
 import os
 import maya.cmds as cmds
+import System.utils as utils
+
 #Each module must have a unique class name
 CLASS_NAME = "ModuleA"
 
@@ -31,9 +33,9 @@ class ModuleA():
 	def install(self):
 		cmds.namespace(setNamespace=":")
 		cmds.namespace(add=self.moduleNamespace)
-		'''
-			Two joints created with one parented to the other
-		'''
+		
+		#Two joints created with one parented to the other
+		
 		#Creating a joint group for organizational purpose
 		self.jointsGrp = cmds.group(empty=True, name=self.moduleNamespace+":joints_grp")
 		self.moduleGrp = cmds.group(self.jointsGrp, name=self.moduleNamespace+":module_grp")
@@ -76,5 +78,40 @@ class ModuleA():
 		
 		#lock the parent joint	
 		cmds.parent(joints[0], self.jointsGrp, absolute=True)
+		
+		translationControls = []
+		for joint in joints:
+			translationControls.append(self.createTranslationControlAtJoint(joint))
+		
 			
 		cmds.lockNode(self.containerName, lock=True, lockUnpublished=True) 
+		
+		
+	def createTranslationControlAtJoint(self,joint):
+		#import the file
+		posControlFile = os.environ["RIGGING_TOOL_ROOT"] + "/ControlObjects/Blueprint/translation_control.ma"
+		cmds.file(posControlFile, i=True) 
+		
+		container = cmds.rename("translation_control_container", joint+"translation_control_container")
+		cmds.container(self.containerName, edit=True, addNode=container)
+		
+		for node in cmds.container(container, q=True, nodeList=True):
+			cmds.rename(node, joint+"_"+node, ignoreShape=True)
+			
+		control = joint+ "_translation_control"
+		
+		jointPos = cmds.xform(joint, q=True, worldSpace=True, translation=True)	
+		cmds.xform(control, worldSpace=True, absolute=True, translation=jointPos)
+		
+		niceName = utils.stripLeadingNamespace(joint)[1]
+		attrName = niceName + "_T"
+		
+		cmds.container(container, edit=True, publishAndBind =[control+".translate", attrName])
+		cmds.container(self.containerName, edit=True, publishAndBind=[container+"."+attrName, attrName])
+		
+		return control
+		
+	
+	
+	def getTranslationControl(self, jointName):
+		return jointName + "_translation_control"

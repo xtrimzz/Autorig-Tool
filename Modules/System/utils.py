@@ -50,4 +50,14 @@ def findHighestTrailingNumber(names, basename):
 					highestValue = numericalElement
 					
 	return highestValue
+	
+	
+def stripLeadingNamespace(nodeName):
+	#return and split the name space
+	if str(nodeName).find(":") == -1:
+		return None
+		
+	splitString = str(nodeName).partition(":")
+	
+	return [splitString[0], splitString[2]]
 			
