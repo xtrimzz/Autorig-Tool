@@ -1,3 +1,5 @@
+import maya.cmds as cmds
+
 def findAllModules(relativeDirectory):
 	# Search the relative directory for all available modules
 	# Return a list of all module names (excluding the ".py" extension)
@@ -61,3 +63,61 @@ def stripLeadingNamespace(nodeName):
 	
 	return [splitString[0], splitString[2]]
 			
+			
+def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLenght=True, poleVectorObject=None, scaleCorrectionAttribute=None):
+	containedNodes = []
+	
+	#Create RP IK on joint chain
+	ikNodes = cmds.ikHandle(sj=rootJoint, ee=endJoint, sol="ikRPsolver", n=rootJoint+"_ikHandle")
+	ikNodes[1] =cmds.rename(ikNodes[1], rootJoint+"_ikEffector")
+	ikEffector = ikNodes[1]
+	ikHandle = ikNodes[0]
+	
+	cmds.setAttr( ikHandle+".visibility", 0)
+	
+	containedNodes.extend(ikNodes)
+	one = ["a", "b", "c"]
+	two = ["d", "e", "f"]
+	#one.append(two) -> ["a","b", "c", ["d","e","f"]] 
+	#BUT one.extend(two) -> ["a","b", "c","d","e","f"]
+	
+	#create pole vector locator
+	
+	if poleVectorObject == None:
+		poleVectorObject = cmds.spaceLocator(n=ikHandle+"_poleVectorLocator")[0]
+		containedNodes.append(poleVectorObject)
+		
+		cmds.xform(poleVectorObject, worldSpace=True, absolute=True, translation=cmds.xform(rootJoint, q=True, worldSpace=True, translation=True))
+		cmds.xform(poleVectorObject, worldSpace=True, relative=True, translation=[0.0, 1.0, 0.0])
+		
+		cmds.setAttr(poleVectorObject+".visibility", 0)
+		
+	poleVectorConstraint = cmds.poleVectorConstraint(poleVectorObject, ikHandle)[0]
+	containedNodes.append(poleVectorConstraint)
+	
+	#Create root and end locators
+	rootLocator = cmds.spaceLocator(n=rootJoint+"_rootPosLocator")[0]
+	rootLocator_pointConstraint = cmds.pointConstraint(rootJoint, rootLocator, maintainOffset=False, n=rootLocator+"_pointConstraint")[0]
+	
+	endLocator = cmds.spaceLocator(n=endJoint+"_endPosLocator")[0]
+	cmds.xform(endLocator, worldSpace=True, absolute=True, translation=cmds.xform(ikHandle, q=True, worldSpace=True, translation=True))
+	ikHandle_pointConstraint = cmds.pointConstraint(endLocator, ikHandle, maintainOffset=False, n=ikHandle+"_pointConstraint")[0]
+	
+	containedNodes.extend([rootLocator, endLocator, rootLocator_pointConstraint, ikHandle_pointConstraint])
+	
+	cmds.setAttr(rootLocator+".visibility", 0)
+	cmds.setAttr(endLocator+".visibility", 0)
+	
+	if container != None:
+		cmds.container(container, edit=True, addNode=containedNodes, ihb=True)
+	
+	returnDict ={}
+	returnDict["ikHandle"] = ikHandle
+	returnDict["ikEffector"] = ikEffector
+	returnDict["rootLocator"] = rootLocator
+	returnDict["endLocator"] = endLocator
+	returnDict["poleVectorObject"] = poleVectorObject
+	returnDict["ikHandle_pointConstraint"] = ikHandle_pointConstraint
+	returnDict["root_Locator_pointConstraint"] = rootLocator_pointConstraint
+	
+	return returnDict
