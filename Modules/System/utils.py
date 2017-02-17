@@ -62,10 +62,50 @@ def stripLeadingNamespace(nodeName):
 	splitString = str(nodeName).partition(":")
 	
 	return [splitString[0], splitString[2]]
+	
+
+def stripAllNameSpaces(nodeName):
+		if str(nodeName).find(":") == -1:
+			return None
 			
+		splitString = str(nodeName).rpartition(":")
+		return [splitString[0], splitString[2]]
+		
 			
 def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLength=True, poleVectorObject=None, scaleCorrectionAttribute=None):
+	from math import fabs
+	
 	containedNodes = []
+	
+	totalOriginalLength = 0.0
+	
+	done = False
+	parent = rootJoint
+	
+	childJoints = []
+	
+	while not done:
+		children = cmds.listRelatives ( parent, children=True)
+		children = cmds.ls(children, type="joint")
+		
+		if len(children) == 0:
+			done = True
+		else:
+			child = children[0]
+			childJoints.append(child)
+			
+			totalOriginalLength += fabs(cmds.getAttr(child+".translateX"))
+			
+			parent = child
+			
+			if child == endJoint:
+				done = True
+				
+				
+	
+	
+	
+	
 	
 	#Create RP IK on joint chain
 	ikNodes = cmds.ikHandle(sj=rootJoint, ee=endJoint, sol="ikRPsolver", n=rootJoint+"_ikHandle")
@@ -107,6 +147,46 @@ def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLength=Tr
 	
 	cmds.setAttr(rootLocator+".visibility", 0)
 	cmds.setAttr(endLocator+".visibility", 0)
+	
+	
+	
+	#Grab distance between locators
+	rootLocatorWithoutNamespace = stripAllNameSpaces(rootLocator)[1]
+	endLocatorWithoutNamespace = stripAllNameSpaces(endLocator)[1]
+	
+	moduleNamespace = stripAllNameSpaces(rootJoint)[0]
+	
+	distNode = cmds.shadingNode("distanceBetween", asUtility=True, n=moduleNamespace+":distBetween_"+rootLocatorWithoutNamespace+"_"+endLocatorWithoutNamespace)
+	
+	containedNodes.append(distNode)
+	
+	cmds.connectAttr(rootLocator+"Shape.worldPosition[0]", distNode+".point1")
+	cmds.connectAttr(endLocator+"Shape.worldPosition[0]", distNode+".point2")
+	
+	scaleAttr = distNode+".distance"
+	
+	#Divide distance by total original length = scale factor
+	scaleFactor = cmds.shadingNode("multiplyDivide", asUtility=True, n=ikHandle+"_scaleFactor")
+	containedNodes.append(scaleFactor)
+	
+	cmds.setAttr(scaleFactor+".operation", 2) #Divide
+	cmds.connectAttr(scaleAttr, scaleFactor+".input1X")
+	cmds.setAttr(scaleFactor+".input2X", totalOriginalLength)
+	
+	translationDriver = scaleFactor + ".outputX"
+	
+	
+	#connect joint to stretchy calc
+	for joint in childJoints:
+		multNode = cmds.shadingNode("multiplyDivide", asUtility=True, n=joint+"_scaleMultiply")
+		containedNodes.append(multNode)
+		
+		cmds.setAttr(multNode+".input1X", cmds.getAttr(joint+".translateX"))
+		cmds.connectAttr(translationDriver, multNode+".input2X")
+		cmds.connectAttr(multNode+".outputX", joint+".translateX")
+	
+	
+	
 	
 	if container != None:
 		addNodeToContainer(container, containedNodes, ihb=True)

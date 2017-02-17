@@ -27,7 +27,7 @@ class ModuleA():
 		
 		self.containerName = self.moduleNamespace + "module_container"
 		
-		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["end_joint",[4.0, 0.0, 0.0]] ]
+		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["hinge_joint",[4.0, 0.0, 0.0]],["shin_joint", [9.0, 0.0, 0.0]], ["butt_joint",[10.0, 0.0, 0.0]] ]
 		
 		
 		
