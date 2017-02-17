@@ -64,7 +64,7 @@ def stripLeadingNamespace(nodeName):
 	return [splitString[0], splitString[2]]
 			
 			
-def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLenght=True, poleVectorObject=None, scaleCorrectionAttribute=None):
+def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLength=True, poleVectorObject=None, scaleCorrectionAttribute=None):
 	containedNodes = []
 	
 	#Create RP IK on joint chain
@@ -121,3 +121,16 @@ def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLenght=Tr
 	returnDict["root_Locator_pointConstraint"] = rootLocator_pointConstraint
 	
 	return returnDict
+	
+	
+def forceSceneUpdate():
+	
+	cmds.setToolTo("moveSuperContext")
+	nodes = cmds.ls()
+	
+	for node in nodes:
+		cmds.select(node, replace=True)
+	
+	cmds.select(clear=True)
+	
+	cmds.setToolTo("selectSuperContext" )

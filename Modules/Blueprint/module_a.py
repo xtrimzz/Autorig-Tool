@@ -9,6 +9,7 @@
 import os
 import maya.cmds as cmds
 import System.utils as utils
+reload(utils)
 
 #Each module must have a unique class name
 CLASS_NAME = "ModuleA"
@@ -82,8 +83,16 @@ class ModuleA():
 		translationControls = []
 		for joint in joints:
 			translationControls.append(self.createTranslationControlAtJoint(joint))
-		
 			
+		rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset=False, name=joints[0]+"_[pointConstraint")
+		cmds.container(self.containerName, edit=True, addNode=rootJoint_pointConstraint)
+		
+		##Setup stretchy joint segments
+		for index in range(len(joints) - 1):
+			self.setupStretchyJointSegment(joints[index], joints[index+1])
+		
+		utils.forceSceneUpdate()
+		
 		cmds.lockNode(self.containerName, lock=True, lockUnpublished=True) 
 		
 		
@@ -115,3 +124,31 @@ class ModuleA():
 	
 	def getTranslationControl(self, jointName):
 		return jointName + "_translation_control"
+		
+	def setupStretchyJointSegment(self, parentJoint, childJoint):
+		parentTranslationControl = self.getTranslationControl(parentJoint)
+		childTranslationControl = self.getTranslationControl(childJoint)
+		
+		poleVectorLocator = cmds.spaceLocator(n=parentTranslationControl+"_poleVectorLocator")[0]
+		poleVectorLocatorGrp = cmds.group(poleVectorLocator, n=poleVectorLocator+"_parentConstraintGrp")
+		
+		cmds.parent(poleVectorLocatorGrp, self.moduleGrp, absolute=True)
+		parentConstraint = cmds.parentConstraint(parentTranslationControl, poleVectorLocatorGrp,maintainOffset=False)[0]
+		
+		cmds.setAttr(poleVectorLocator+".visibility", 0)
+		
+		cmds.setAttr(poleVectorLocator+".ty", -0.5)
+		
+		
+		ikNodes = utils.basic_stretchy_IK(parentJoint, childJoint, container=self.containerName, lockMinimumLength=False, poleVectorObject=poleVectorLocator, scaleCorrectionAttribute=None)
+		ikHandle = ikNodes["ikHandle"]
+		rootLocator = ikNodes["rootLocator"]
+		endLocator = ikNodes["endLocator"]
+		
+		childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset=False, n=endLocator+"_pointConstraint")[0]
+		
+		cmds.container(self.containerName, edit=True, addNode = [ poleVectorLocatorGrp, parentConstraint, childPointConstraint], ihb =True)
+		
+		for node in [ikHandle, rootLocator, endLocator]:
+			cmds.parent( node, self.jointsGrp, absolute=True)
+			cmds.setAttr(node+".visibility", 0)
