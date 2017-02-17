@@ -64,7 +64,7 @@ class ModuleA():
 			jointName_full = cmds.joint(n=self.moduleNamespace+":"+jointName, p=jointPos)
 			joints.append(jointName_full)
 			
-			cmds.container(self.containerName, edit=True, addNode=jointName_full)
+			utils.addNodeToContainer(self.containerName, jointName_full)
 			
 			cmds.container(self.containerName, edit=True, publishAndBind=[jointName_full+".rotate", jointName+"_R"])
 			cmds.container(self.containerName, edit=True, publishAndBind=[jointName_full+".rotateOrder", jointName+"_rotateOrder"])
@@ -85,7 +85,7 @@ class ModuleA():
 			translationControls.append(self.createTranslationControlAtJoint(joint))
 			
 		rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset=False, name=joints[0]+"_[pointConstraint")
-		cmds.container(self.containerName, edit=True, addNode=rootJoint_pointConstraint)
+		utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 		
 		##Setup stretchy joint segments
 		for index in range(len(joints) - 1):
@@ -102,7 +102,7 @@ class ModuleA():
 		cmds.file(posControlFile, i=True) 
 		
 		container = cmds.rename("translation_control_container", joint+"translation_control_container")
-		cmds.container(self.containerName, edit=True, addNode=container)
+		utils.addNodeToContainer(self.containerName, container)
 		
 		for node in cmds.container(container, q=True, nodeList=True):
 			cmds.rename(node, joint+"_"+node, ignoreShape=True)
@@ -147,7 +147,7 @@ class ModuleA():
 		
 		childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset=False, n=endLocator+"_pointConstraint")[0]
 		
-		cmds.container(self.containerName, edit=True, addNode = [ poleVectorLocatorGrp, parentConstraint, childPointConstraint], ihb =True)
+		utils.addNodeToContainer(self.containerName, [ poleVectorLocatorGrp, parentConstraint, childPointConstraint], ihb=True)
 		
 		for node in [ikHandle, rootLocator, endLocator]:
 			cmds.parent( node, self.jointsGrp, absolute=True)
