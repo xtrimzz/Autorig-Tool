@@ -64,7 +64,7 @@ def stripLeadingNamespace(nodeName):
 	return [splitString[0], splitString[2]]
 	
 
-def stripAllNameSpaces(nodeName):
+def stripAllNamespaces(nodeName):
 		if str(nodeName).find(":") == -1:
 			return None
 			

@@ -27,7 +27,7 @@ class ModuleA():
 		
 		self.containerName = self.moduleNamespace + "module_container"
 		
-		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["hinge_joint",[4.0, 0.0, 0.0]],["shin_joint", [9.0, 0.0, 0.0]] ]
+		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["hinge_joint",[4.0, 0.0, 0.0]]]
 		
 		
 		
@@ -40,7 +40,8 @@ class ModuleA():
 		#Creating a joint group for organizational purpose
 		self.jointsGrp = cmds.group(empty=True, name=self.moduleNamespace+":joints_grp")
 		self.hierarchyRepresentationGrp = cmds.group(empty=True, name=self.moduleNamespace+":hierarchyRepresentation_grp")
-		self.moduleGrp = cmds.group([self.jointsGrp,self.hierarchyRepresentationGrp], name=self.moduleNamespace+":module_grp")
+		self.orientationControlsGrp = cmds.group(empty=True, name=self.moduleNamespace+":orientationControls_grp")
+		self.moduleGrp = cmds.group([self.jointsGrp,self.hierarchyRepresentationGrp, self.orientationControlsGrp], name=self.moduleNamespace+":module_grp")
 		
 		cmds.container(name=self.containerName, addNode=self.moduleGrp, ihb=True)
 		
@@ -96,6 +97,12 @@ class ModuleA():
 		##Setup stretchy joint segments
 		for index in range(len(joints) - 1):
 			self.setupStretchyJointSegment(joints[index], joints[index+1])
+			
+			
+			
+			
+		#NON DEFAULT FUNCTIONALITY
+		self.createOrientationControl(joints[0], joints[1])
 		
 		utils.forceSceneUpdate()
 		
@@ -219,3 +226,24 @@ class ModuleA():
 		cmds.container(self.containerName, edit=True, publishAndBind=[self.moduleTransform+".rotate", "moduleTransform_R"])
 		cmds.container(self.containerName, edit=True, publishAndBind=[self.moduleTransform+".globalScale", "moduleTransform_globalScale"])
 		
+	
+	def deleteHierarchyRepresentation(self, parentJoint):
+		hierarchyContainer = parentJoint + "_hierarchy_representation_container"
+		cmds.delete(hierarchyContainer)
+	
+	def createOrientationControl(self, parentJoint, childJoint):
+		self.deleteHierarchyRepresentation(parentJoint)
+		
+		nodes = self.createStretchyObject("/ControlObjects/Blueprint/orientation_control.ma","orientation_control_container", "orientation_control", parentJoint, childJoint)
+		orientationContainer = nodes[0]
+		orientationControl = nodes[1]
+		constrainedGrp = nodes[2]
+		 
+		cmds.parent(constrainedGrp, self.orientationControlsGrp, relative=True)
+		
+		parentJointWithoutNamespace = utils.stripAllNamespaces(parentJoint)[1]
+		attrName = parentJointWithoutNamespace + "_orientation"
+		cmds.container(orientationContainer, edit=True, publishAndBind=[orientationControl+".rotateX", attrName])
+		cmds.container(self.containerName, edit=True, publishAndBind=[orientationContainer+"."+attrName, attrName])
+		
+		return orientationControl
