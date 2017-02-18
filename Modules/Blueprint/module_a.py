@@ -83,6 +83,9 @@ class ModuleA():
 		#lock the parent joint	
 		cmds.parent(joints[0], self.jointsGrp, absolute=True)
 		
+		self.initialiseModuleTransform(self.jointInfo[0][1])
+		
+		
 		translationControls = []
 		for joint in joints:
 			translationControls.append(self.createTranslationControlAtJoint(joint))
@@ -111,6 +114,8 @@ class ModuleA():
 			cmds.rename(node, joint+"_"+node, ignoreShape=True)
 			
 		control = joint+ "_translation_control"
+		
+		cmds.parent(control, self.moduleTransform, absolute=True) 
 		
 		jointPos = cmds.xform(joint, q=True, worldSpace=True, translation=True)	
 		cmds.xform(control, worldSpace=True, absolute=True, translation=jointPos)
@@ -185,10 +190,32 @@ class ModuleA():
 		
 		cmds.connectAttr(childJoint+".translateX", constrainedGrp+".scaleX")
 		
-		utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint], ihb=True)
+		#Adjust the hierarchy rep to scale with the module transform
+		scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip=["x"], maintainOffset=False)[0]
+		
+		utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint,scaleConstraint], ihb=True)
 		utils.addNodeToContainer(self.containerName, objectContainer)
 		
 		return(objectContainer, object, constrainedGrp)
 		
+	
+	def initialiseModuleTransform(self, rootPos):
+		controlGrpFile = os.environ["RIGGING_TOOL_ROOT"] + "/ControlObjects/Blueprint/controlGroup_control.ma"
+		cmds.file(controlGrpFile, i=True)
 		
+		self.moduleTransform = cmds.rename("controlGroup_control", self.moduleNamespace+":module_transform")
+		
+		cmds.xform(self.moduleTransform, worldSpace=True, absolute=True, translation=rootPos)
+		
+		utils.addNodeToContainer(self.containerName, self.moduleTransform, ihb=True)
+		
+		#Setup global scaling
+		cmds.connectAttr(self.moduleTransform+".scaleY", self.moduleTransform+".scaleX")
+		cmds.connectAttr(self.moduleTransform+".scaleY", self.moduleTransform+".scaleZ")
+		
+		cmds.aliasAttr("globalScale", self.moduleTransform+".scaleY")
+		 
+		cmds.container(self.containerName, edit=True, publishAndBind=[self.moduleTransform+".translate", "moduleTransform_T"])
+		cmds.container(self.containerName, edit=True, publishAndBind=[self.moduleTransform+".rotate", "moduleTransform_R"])
+		cmds.container(self.containerName, edit=True, publishAndBind=[self.moduleTransform+".globalScale", "moduleTransform_globalScale"])
 		

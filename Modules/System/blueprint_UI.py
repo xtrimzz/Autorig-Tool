@@ -110,3 +110,8 @@ class Blueprint_UI:
 		moduleInstance = moduleClass(userSpecName)
 		moduleInstance.install()
 		
+		#Select the module outline and Make move Tool ACTIVE
+		moduleTransform = mod.CLASS_NAME + "__" + userSpecName + ":module_transform"
+		cmds.select(moduleTransform, replace=True)
+		cmds.setToolTo("moveSuperContext")
+		
