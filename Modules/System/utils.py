@@ -151,10 +151,10 @@ def basic_stretchy_IK (rootJoint, endJoint, container=None, lockMinimumLength=Tr
 	
 	
 	#Grab distance between locators
-	rootLocatorWithoutNamespace = stripAllNameSpaces(rootLocator)[1]
-	endLocatorWithoutNamespace = stripAllNameSpaces(endLocator)[1]
+	rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)[1]
+	endLocatorWithoutNamespace = stripAllNamespaces(endLocator)[1]
 	
-	moduleNamespace = stripAllNameSpaces(rootJoint)[0]
+	moduleNamespace = stripAllNamespaces(rootJoint)[0]
 	
 	distNode = cmds.shadingNode("distanceBetween", asUtility=True, n=moduleNamespace+":distBetween_"+rootLocatorWithoutNamespace+"_"+endLocatorWithoutNamespace)
 	
