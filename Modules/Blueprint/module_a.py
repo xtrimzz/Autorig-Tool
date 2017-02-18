@@ -27,7 +27,7 @@ class ModuleA():
 		
 		self.containerName = self.moduleNamespace + "module_container"
 		
-		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["hinge_joint",[4.0, 0.0, 0.0]],["shin_joint", [9.0, 0.0, 0.0]], ["butt_joint",[10.0, 0.0, 0.0]] ]
+		self.jointInfo = [ ["root_joint", [0.0, 0.0, 0.0]], ["hinge_joint",[4.0, 0.0, 0.0]],["shin_joint", [9.0, 0.0, 0.0]] ]
 		
 		
 		
@@ -39,7 +39,8 @@ class ModuleA():
 		
 		#Creating a joint group for organizational purpose
 		self.jointsGrp = cmds.group(empty=True, name=self.moduleNamespace+":joints_grp")
-		self.moduleGrp = cmds.group(self.jointsGrp, name=self.moduleNamespace+":module_grp")
+		self.hierarchyRepresentationGrp = cmds.group(empty=True, name=self.moduleNamespace+":hierarchyRepresentation_grp")
+		self.moduleGrp = cmds.group([self.jointsGrp,self.hierarchyRepresentationGrp], name=self.moduleNamespace+":module_grp")
 		
 		cmds.container(name=self.containerName, addNode=self.moduleGrp, ihb=True)
 		
@@ -152,3 +153,40 @@ class ModuleA():
 		for node in [ikHandle, rootLocator, endLocator]:
 			cmds.parent( node, self.jointsGrp, absolute=True)
 			cmds.setAttr(node+".visibility", 0)
+			
+		self.createHierarchyRepresentation(parentJoint, childJoint)
+		
+		
+	def createHierarchyRepresentation(self, parentJoint, childJoint):
+		nodes = self.createStretchyObject("/ControlObjects/Blueprint/hierarchy_representation.ma", "hierarchy_representation_container", "hierarchy_representation", parentJoint, childJoint)
+		constrainedGrp = nodes[2]
+		
+		cmds.parent(constrainedGrp, self.hierarchyRepresentationGrp, relative=True)
+		
+		
+	def createStretchyObject(self, objectRelativeFilepath, objectContainerName, objectName, parentJoint, childJoint):
+		#import the file
+		objectFile = os.environ["RIGGING_TOOL_ROOT"] + objectRelativeFilepath
+		cmds.file(objectFile, i=True)
+		
+		objectContainer = cmds.rename(objectContainerName, parentJoint+"_"+objectContainerName)
+		
+		for node in cmds.container(objectContainer, q=True, nodeList=True):
+			cmds.rename(node, parentJoint+"_"+node, ignoreShape=True)
+			
+		object = parentJoint+"_"+objectName
+		
+		constrainedGrp = cmds.group(empty=True, name=object+"_parentConstraint_grp")
+		cmds.parent(object, constrainedGrp, absolute=True)
+		
+		parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset=False)[0]
+		
+		cmds.connectAttr(childJoint+".translateX", constrainedGrp+".scaleX")
+		
+		utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint], ihb=True)
+		utils.addNodeToContainer(self.containerName, objectContainer)
+		
+		return(objectContainer, object, constrainedGrp)
+		
+		
+		
