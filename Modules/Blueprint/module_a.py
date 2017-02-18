@@ -65,6 +65,8 @@ class ModuleA():
 			jointName_full = cmds.joint(n=self.moduleNamespace+":"+jointName, p=jointPos)
 			joints.append(jointName_full)
 			
+			cmds.setAttr(jointName_full+".visibility", 0)
+			
 			utils.addNodeToContainer(self.containerName, jointName_full)
 			
 			cmds.container(self.containerName, edit=True, publishAndBind=[jointName_full+".rotate", jointName+"_R"])
