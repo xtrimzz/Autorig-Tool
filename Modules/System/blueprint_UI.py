@@ -15,10 +15,10 @@ class Blueprint_UI:
 			cmds.deleteUI("blueprint_UI_window")
 			
 		#create the window
-		windowWidth = 400
-		windowHeight = 500
+		windowWidth = 150
+		windowHeight = 200
 		
-		self.UIElements["window"] = cmds.window("blueprint_UI_window",width = windowWidth, height = windowHeight, title="Blueprint Module UI", sizeable = False)
+		self.UIElements["window"] = cmds.window("blueprint_UI_window",width = windowWidth, height = windowHeight, title="Blueprint Module UI", sizeable = True)
 		
 		#create layout
 		self.UIElements["topLevelColumn"] = cmds.columnLayout( adjustableColumn = True, columnAlign ="center")
@@ -81,7 +81,7 @@ class Blueprint_UI:
 		cmds.setParent(self.UIElements["moduleColumn"])
 		
 		#Make the width of the buttons to fit into 3 columnAlign
-		columnWidth = tabWidth #(tabWidth - 20) / 3
+		columnWidth = tabWidth + 20 #(tabWidth - 20) / 3
 		self.UIElements["moduleButtons_rowColumn"] = cmds.rowColumnLayout(numberOfColumns=3, ro=[(1, "both", 2),(2, "both", 2), (3, "both", 2)], columnAttach=[ (1, "both", 3),(2,"both", 3),(3,"both",3)], columnWidth=[(1,columnWidth),(2, columnWidth),(3, columnWidth)] )
 		
 		self.UIElements["rehookBtn"] = cmds.button(enable=False, label="Re-hook")
