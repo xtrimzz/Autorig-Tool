@@ -27,12 +27,27 @@ class Blueprint():
 	def install_custom( self, joints):
 		print "install_custom() method is not implemented by derived class"
 		
-
+	def lock_phase1(self):
+	
+		return None
 	
 	#Baseclass Methods	
 	def install(self):
 		cmds.namespace(setNamespace=":")
-		cmds.namespace(add=self.moduleNamespace)
+		cmds.namespace(add=self.moduleNamespace)	#Gather and return all required information from this module's control object
+		
+		#jointPositions = list of joint positions, from root down the hierarchy
+		
+		#jointOrientations = a list of orientations, or a list of axis information (orientJoint and secondaryAxisOrient for the joint cmd)
+		#					#These are passed in the followint tuple: (orientations, None) or (None, axisInfo)
+		#jointRotationOrders = a list of joint rotation orders (integers values gathered with getAttr)
+		#jointPreferredAngles = a list of joint prefered angles, optional (can pass None)
+		#hookObject = self.findHookObjectForLock()
+		#rootTransform = a bool, either True or False. True =R, T and S on root joint. False = R only.
+		#
+		#moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
+		#return moduleInfo
+		
 		
 		#Two joints created with one parented to the other
 		
@@ -247,3 +262,37 @@ class Blueprint():
 		cmds.container(self.containerName, edit=True, publishAndBind=[orientationContainer+"."+attrName, attrName])
 		
 		return orientationControl
+		
+	def getJoints(self):
+		jointBasename = self.moduleNamespace + ":"
+		joints = []
+		
+		for jointInf in self.jointInfo:
+			joints.append(jointBasename + jointInf[0])
+		
+		return joints
+		
+	def getOrientationControl(self, jointName):
+		return jointName + "_orientation_control"
+		
+	def orientationControlledJoint_getOrientation(self, joint, cleanParent):
+		newCleanParent = cmds.duplicate(joint, parentOnly=True)[0]
+		
+		#check if not parented already to avoid error
+		if not cleanParent in cmds.listRelatives(newCleanParent, parent=True):
+			cmds.parent(newCleanParent, cleanParent, absolute=True)
+		
+		cmds.makeIdentity(newCleanParent, apply=True, rotate=True, scale=False, translate=False)
+		
+		orientationControl = self.getOrientationControl(joint)
+		cmds.setAttr(newCleanParent+".rotateX", cmds.getAttr(orientationControl+".rotateX"))
+		
+		cmds.makeIdentity(newCleanParent, apply=True, rotate=True, scale=False, translate=False)
+		
+		orientX = cmds.getAttr(newCleanParent + ".jointOrientX")
+		orientY= cmds.getAttr(newCleanParent + ".jointOrientY")
+		orientZ = cmds.getAttr(newCleanParent + ".jointOrientZ")
+		
+		orientationValues = (orientX, orientY, orientZ)
+		
+		return(orientationValues, newCleanParent)

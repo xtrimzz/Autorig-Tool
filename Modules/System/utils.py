@@ -13,6 +13,20 @@ def findAllModules(relativeDirectory):
 	
 	return returnModules
 	
+def findAllModuleNames(relativeDirectory):
+	validModules = findAllModules(relativeDirectory)
+	validModuleNames = []
+	
+	packageFolder = relativeDirectory.partition("/Modules/")[2]
+	
+	for m in validModules:
+		mod = __import__(packageFolder+"."+m, {},{}, [m])
+		reload(mod)
+	
+		validModuleNames.append(mod.CLASS_NAME)
+		
+	return(validModules, validModuleNames)
+	
 def findAllFiles(relativeDirectory, fileExtension):
 
 	# Search the relative directory for all files with the given extension

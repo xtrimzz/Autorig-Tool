@@ -15,8 +15,8 @@ class Blueprint_UI:
 			cmds.deleteUI("blueprint_UI_window")
 			
 		#create the window
-		windowWidth = 150
-		windowHeight = 200
+		windowWidth = 400
+		windowHeight = 500
 		
 		self.UIElements["window"] = cmds.window("blueprint_UI_window",width = windowWidth, height = windowHeight, title="Blueprint Module UI", sizeable = True)
 		
@@ -39,10 +39,15 @@ class Blueprint_UI:
 		self.UIElements["lockPulishColumn"] = cmds.columnLayout(adj=True, columnAlign="center", rs=3)
 		
 		cmds.separator()
-		self.UIElements["lockBtn"] = cmds.button(label="Lock")
+		self.UIElements["lockBtn"] = cmds.button(label="Lock", c=self.lock)
 		cmds.separator()
 		self.UIElements["publishBtn"] = cmds.button(label="Publish")
 		cmds.separator()
+		
+		
+	
+		
+		
 		
 		#display window
 		cmds.showWindow( self.UIElements["window"] )
@@ -152,4 +157,45 @@ class Blueprint_UI:
 		moduleTransform = mod.CLASS_NAME + "__" + userSpecName + ":module_transform"
 		cmds.select(moduleTransform, replace=True)
 		cmds.setToolTo("moveSuperContext")
+	
+	def lock(self, *args):
+		result = cmds.confirmDialog(messageAlign="center", title="Lock Blueprints", message="The action of locking a character will convert the current blueprint modules to joints. \nThis action cannot be undone. \nModifications to the blueprint system cannot be made after this point. \n Do you want to continue?", button=["Accept", "Cancel"], defaultButton="Accept", cancelButton="Cancel", dismissString="Cancel")
 		
+		if result != "Accept":
+			return
+			
+		moduleInfo = [] #store [module, userSpecifiedName] pairs
+		
+		cmds.namespace(setNamespace=":")
+		namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+		
+		moduleNameInfo = utils.findAllModuleNames("/Modules/Blueprint")
+		validModules = moduleNameInfo[0]
+		validModuleNames = moduleNameInfo[1]
+		
+		for n in namespaces:
+			splitString = n.partition("__")
+			
+			if splitString[1] != "":
+				module = splitString[0]
+				userSpecifiedName = splitString[2]
+			
+				if module in validModuleNames:
+					index = validModuleNames.index(module)
+					moduleInfo.append([validModules[index], userSpecifiedName])
+				
+		if len(moduleInfo) ==  0:
+			cmds.confirmDialog(messageAlign="center", title="Lock Blueprints", message="There appear to be no blueprint module \ninstances in the current scene. \nAborting lock", button=["Accept"], defaultButton="Accept")
+			return
+		
+		moduleInstances = []
+		for module in moduleInfo:
+			mod = __import__("Blueprint."+module[0], {},{},module[0])
+			reload(mod)
+			
+			moduleClass = getattr(mod, mod.CLASS_NAME)
+			moduleInst = moduleClass(userSpecifiedName=module[1])
+			
+			moduleInfo = moduleInst.lock_phase1()
+			
+			print moduleInfo
