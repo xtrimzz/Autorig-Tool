@@ -129,7 +129,7 @@ class Blueprint():
 		posControlFile = os.environ["RIGGING_TOOL_ROOT"] + "/ControlObjects/Blueprint/translation_control.ma"
 		cmds.file(posControlFile, i=True) 
 		
-		container = cmds.rename("translation_control_container", joint+"translation_control_container")
+		container = cmds.rename("translation_control_container", joint+"_translation_control_container")
 		utils.addNodeToContainer(self.containerName, container)
 		
 		for node in cmds.container(container, q=True, nodeList=True):
@@ -296,3 +296,181 @@ class Blueprint():
 		orientationValues = (orientX, orientY, orientZ)
 		
 		return(orientationValues, newCleanParent)
+		
+		
+	def lock_phase2(self, moduleInfo):
+		jointPositions = moduleInfo[0]
+		numJoints = len(jointPositions)
+		
+		jointOrientations = moduleInfo[1]
+		orientWithAxis = False
+		pureOrientations = False
+		if jointOrientations[0] == None:
+			orientWithAxis = True
+			jointOrientations = jointOrientations[0]
+
+		else:
+			pureOrientations = True
+			jointOrientations = jointOrientations[0]
+			
+		numOrientations = len(jointOrientations)
+		
+		jointRotationOrders = moduleInfo[2]
+		numRotationOrders  = len(jointRotationOrders)
+		
+		jointPreferredAngles = moduleInfo[3]
+		numPreferredAngles = 0
+		if jointPreferredAngles != None:
+			numPreferredAngles = len(jointPreferedAngles)
+			
+		#hookObject = moduleInfo[4]
+		
+		rootTransform = moduleInfo[5]
+		
+		#Delete our blueprint controls
+		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
+		
+		cmds.delete(self.containerName)
+		
+		cmds.namespace(setNamespace=":")
+		
+			
+		jointRadius = 1
+		if numJoints == 1:
+			jointRadius = 1.5
+			
+		newJoints = []
+		for i in range(numJoints):
+			newJoint = ""
+			cmds.select(clear=True)
+			
+			if orientWithAxis:
+				print "orientWithAxis"
+			else:
+				if i != 0:
+					cmds.select(newJoints[i-1])
+					
+				jointOrientation = [0.0, 0.0, 0.0]
+				if i < numOrientations:
+					jointOrientation = [jointOrientations[i][0], jointOrientations[i][1], jointOrientations[i][2]]
+				
+				newJoint = cmds.joint(n=self.moduleNamespace+":blueprint_"+self.jointInfo[i][0], p=jointPositions[i], orientation=jointOrientation, rotationOrder="xyz", radius=jointRadius)
+				
+			newJoints.append(newJoint)
+			
+			if i < numRotationOrders:
+				cmds.setAttr(newJoint+".rotateOrder", int(jointRotationOrders[i]))
+				
+			if i < numPreferredAngles:
+				cmds.setAttr(newJoint+".preferredAngleX", jointPreferredAngles[i][0])
+				cmds.setAttr(newJoint+".preferredAngleY", jointPreferredAngles[i][1])
+				cmds.setAttr(newJoint+".preferredAngleZ", jointPreferredAngles[i][2])
+				
+			cmds.setAttr(newJoint+".segmentScaleCompensate", 0)
+		
+		blueprintGrp = cmds.group(empty=True, name=self.moduleNamespace+":blueprint_joints_grp")
+		cmds.parent(newJoints[0], blueprintGrp, absolute=True)
+		
+		creationPoseGrpNodes = cmds.duplicate(blueprintGrp, name=self.moduleNamespace+":creationPose_joints_grp", renameChildren=True)
+		creationPoseGrp = creationPoseGrpNodes[0]
+		
+		creationPoseGrpNodes.pop(0)
+		i = 0
+		for node in creationPoseGrpNodes:
+			renamedNode  = cmds.rename(node, self.moduleNamespace+":creationPose_" + self.jointInfo[i][0])
+			cmds.setAttr(renamedNode+".visibility", 0)
+			i += 1
+			
+		cmds.select(blueprintGrp, replace=True)
+		cmds.addAttr(at="bool", defaultValue=0, longName="controlModulesInstalled", k=False)
+		
+		settingsLocator = cmds.spaceLocator(n=self.moduleNamespace+":SETTINGS")[0]
+		cmds.setAttr(settingsLocator+".visibility", 0)
+		
+		cmds.select(settingsLocator, replace=True)
+		cmds.addAttr(at="enum", ln="activeModule", en="None:", k=False)
+		cmds.addAttr(at="float", ln="creationPoseWeight", defaultValue=1, k=False)
+		
+		i = 0
+		utilityNodes = []
+		for joint in newJoints: 
+			if i < (numJoints-1) or numJoints == 1:
+				addNode = cmds.shadingNode("plusMinusAverage", n=joint+"_addRotations", asUtility=True)
+				cmds.connectAttr(addNode+".output3D", joint+".rotate", force=True)
+				utilityNodes.append(addNode)
+				
+				dummyRotationsMultiply = cmds.shadingNode("multiplyDivide", n=joint+"_dummyRotationsMultiply", asUtility=True)
+				cmds.connectAttr(dummyRotationsMultiply+".output", addNode+".input3D[0]", force=True)
+				utilityNodes.append(dummyRotationsMultiply)
+				
+			if i > 0:
+				originalTx = cmds.getAttr(joint+".tx")
+				addTxNode = cmds.shadingNode("plusMinusAverage", n=joint+"_addTx", asUtility=True)
+				cmds.connectAttr(addTxNode+".output1D", joint+".translateX", force=True)
+				utilityNodes.append(addTxNode)
+				
+				originalTxMultiply = cmds.shadingNode("multiplyDivide", n=joint+"_original_Tx", asUtility=True)
+				cmds.setAttr(originalTxMultiply+".input1X", originalTx, lock=True)
+				cmds.connectAttr(settingsLocator+".creationPoseWeight", originalTxMultiply+".input2X", force=True)
+				
+				cmds.connectAttr(originalTxMultiply+".outputX", addTxNode+".input1D[0]", force=True)
+				utilityNodes.append(originalTxMultiply)
+			else:
+				if rootTransform:
+					originalTranslates = cmds.getAttr(joint+".translate")[0]
+					addTranslateNode = cmds.shadingNode("plusMinusAverage", n=joint+"_addTranslate", asUtility=True)
+					cmds.connectAttr(addTranslateNode+".output3D", joint+".translate", force=True)
+					utilityNodes.append(addTranslateNode)
+					
+					originalTranslateMultiply = cmds.shadingNode("multiplyDivide", n=joint+"_original_Translate", asUtility=True)
+					cmds.setAttr(originalTranslateMultiply+".input1", originalTranslates[0], originalTranslates[1], originalTranslates[2], type="double3")
+					for attr in ["X","Y","Z"]:
+						cmds.connectAttr(settingsLocator+".creationPoseWeight", originalTranslateMultiply+".input2"+attr)
+					
+					cmds.connectAttr(originalTranslateMultiply+".output", addTranslateNode+".input3D[0]", force=True)
+					
+					utilityNodes.append(originalTranslateMultiply)
+					
+					#Scale
+					originalScales = cmds.getAttr(joint+".scale")[0]
+					addScaleNode = cmds.shadingNode("plusMinusAverage", n=joint+"addScale", asUtility=True)
+					cmds.connectAttr(addScaleNode+".output3D", joint+".scale", force=True)
+					utilityNodes.append(addScaleNode)
+					
+					originalScaleMultiply = cmds.shadingNode("multiplyDivide", n=joint+"_original_scale", asUtility=True)
+					cmds.setAttr(originalScaleMultiply+".input1", originalScales[0], originalScales[1], originalScales[2], type="double3")
+					for attr in ["X", "Y", "Z"]:
+						cmds.connectAttr(settingsLocator+".creationPoseWeight", originalScaleMultiply+".input2"+attr)
+						
+					cmds.connectAttr(originalScaleMultiply+".output", addScaleNode+".input3D[0]", force=True)
+					utilityNodes.append(originalScaleMultiply)
+					
+			i += 1
+			
+		blueprintNodes = utilityNodes
+		blueprintNodes.append(blueprintGrp)
+		blueprintNodes.append(creationPoseGrp)
+		
+		blueprintContainer = cmds.container(n=self.moduleNamespace+":blueprint_container")
+		utils.addNodeToContainer(blueprintContainer, blueprintNodes, ihb=True)
+		
+		
+		moduleGrp = cmds.group(empty=True, name=self.moduleNamespace+":module_grp") 
+		cmds.parent(settingsLocator, moduleGrp, absolute=True)
+		
+		#TEMP
+		for group in [blueprintGrp, creationPoseGrp]:
+			cmds.parent(group, moduleGrp, absolute=True)
+		#END TEMP
+
+		moduleContainer = cmds.container(n=self.moduleNamespace+":module_container")
+		utils.addNodeToContainer(moduleContainer, [moduleGrp, settingsLocator, blueprintContainer], includeShapes=True)
+		
+		cmds.container(moduleContainer, edit=True, publishAndBind=[settingsLocator+".activeModule","activeModule"])
+		cmds.container(moduleContainer, edit=True, publishAndBind=[settingsLocator+".creationPoseWeight", "creationPoseWeight"])
+		
+		#TEMP
+		cmds.lockNode(moduleContainer, lock=True, lockUnpublished=True)
+		#END TEMP
+			
+		

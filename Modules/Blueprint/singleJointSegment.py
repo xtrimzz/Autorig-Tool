@@ -55,7 +55,7 @@ class SingleJointSegment(blueprintMod.Blueprint):
 		
 		jointPreferredAngles = None
 		hookObject = None
-		rootTransform = False
+		rootTransform = True
 		
 		moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform)
 		return moduleInfo

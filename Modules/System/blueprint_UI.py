@@ -198,4 +198,7 @@ class Blueprint_UI:
 			
 			moduleInfo = moduleInst.lock_phase1()
 			
-			print moduleInfo
+			moduleInstances.append((moduleInst, moduleInfo))
+			
+		for module in moduleInstances:
+			module[0].lock_phase2(module[1])
