@@ -60,6 +60,8 @@ class Blueprint_UI:
 		cmds.scriptJob(kill=self.jobNum)
 		
 	def initializeModuleTab(self, tabHeight, tabWidth):
+		moduleSpecific_scrollHeight = 120
+		scrollHeight = tabHeight - moduleSpecific_scrollHeight - 163
 		scrollHeight = 200 #tabHeight temp value
 		
 		#will contain all the controls and buttons
@@ -110,7 +112,11 @@ class Blueprint_UI:
 		cmds.setParent(self.UIElements["moduleColumn"])
 		cmds.separator()
 		
-		
+		self.UIElements["moduleSpecificRowColumnLayout"] = cmds.rowColumnLayout(nr=1, rowAttach=[1, "both", 0], rowHeight=[1,moduleSpecific_scrollHeight])
+		self.UIElements["moduleSpecific_Scroll"] = cmds.scrollLayout(hst=0)
+		self.UIElements["moduleSpecific_column"] = cmds.columnLayout(columnWidth=self.scrollWidth, columnAttach=["both", 5], rs=2)
+		cmds.setParent(self.UIElements["moduleColumn"])
+		cmds.separator()
 		
 		 
 	def createModuleInstallButton(self, module):
@@ -210,7 +216,7 @@ class Blueprint_UI:
 			module[0].lock_phase2(module[1])
 			
 	def modifySelected(self, *args):
-			print "SCRIPT JOB FIRED"
+			
 			
 			selectedNodes = cmds.ls(selection=True)
  			
@@ -247,9 +253,18 @@ class Blueprint_UI:
 					controlEnable = True
 					userSpecifiedName = selectedModuleNamespace.partition("__")[2]
  					
-					print currentModuleFile
-					print selectedModuleNamespace
-					print userSpecifiedName
-			
- 			
+					mod = __import__("Blueprint."+currentModuleFile, {},{}, [currentModuleFile])
+					reload(mod)
+					
+					moduleClass = getattr(mod, mod.CLASS_NAME)
+					self.moduleInstance = moduleClass(userSpecifiedName=userSpecifiedName)
+					
+				cmds.button(self.UIElements["mirrorModuleBtn"], edit=True, enable=controlEnable)
+				cmds.button(self.UIElements["rehookBtn"], edit=True, enable=controlEnable)
+				cmds.button(self.UIElements["snapRootBtn"], edit=True, enable=controlEnable)
+				cmds.button(self.UIElements["constrainRootBtn"], edit=True, enable=controlEnable)
+				
+				cmds.button(self.UIElements["deleteModuleBtn"], edit=True, enable=controlEnable)
+				
+				cmds.textField(self.UIElements["moduleName"], edit=True, enable=controlEnable, text=userSpecifiedName)
 			self.createScriptJob()
