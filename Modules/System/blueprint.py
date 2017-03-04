@@ -484,3 +484,10 @@ class Blueprint():
 	def createRotationOrderUIControl(self, joint):
 		jointName = utils.stripAllNamespaces(joint)[1]
 		attrControlGroup = cmds.attrControlGrp(attribute=joint+".rotateOrder", label=jointName)
+		
+	def delete(self):
+		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
+		cmds.delete(self.containerName)
+		
+		cmds.namespace(setNamespace=":")
+		cmds.namespace(removeNamespace=self.moduleNamespace)

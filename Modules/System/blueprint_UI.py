@@ -264,7 +264,7 @@ class Blueprint_UI:
 				cmds.button(self.UIElements["snapRootBtn"], edit=True, enable=controlEnable)
 				cmds.button(self.UIElements["constrainRootBtn"], edit=True, enable=controlEnable)
 				
-				cmds.button(self.UIElements["deleteModuleBtn"], edit=True, enable=controlEnable)
+				cmds.button(self.UIElements["deleteModuleBtn"], edit=True, enable=controlEnable, c=self.deleteModule)
 				
 				cmds.textField(self.UIElements["moduleName"], edit=True, enable=controlEnable, text=userSpecifiedName)
 				
@@ -281,3 +281,9 @@ class Blueprint_UI:
 			
 			if self.moduleInstance != None:
 				self.moduleInstance.UI(self, self.UIElements["moduleSpecific_column"])
+				
+				
+	def deleteModule(self, *args):
+		self.moduleInstance.delete()
+		cmds.select(clear=True)
+	
