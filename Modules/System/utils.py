@@ -248,3 +248,15 @@ def addNodeToContainer(container, nodesIn, ihb=False, includeShapes=False, force
 		
 	nodes.extend(conversionNodes)
 	cmds.container(container, edit=True, addNode=nodes, ihb=ihb, includeShapes=includeShapes, force=force)
+	
+	
+def doesBlueprintUserSpecifiedNameExist(name):
+	cmds.namespace(setNamespace=":")
+	namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+	
+	names = []
+	for namespace in namespaces:
+		if namespace.find("__") != 1:
+			names.append(namespace.partition("__")[2])
+			
+	return name in names
