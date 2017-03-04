@@ -31,7 +31,7 @@ class Blueprint_UI:
 		self.UIElements["tabs"] = cmds.tabLayout(height = tabHeight, innerMarginWidth = 5,innerMarginHeight = 5)
 		
 		tabWidth = cmds.tabLayout(self.UIElements["tabs"], q=True, width = True)
-		self.scrollWidth = tabWidth - 40
+		self.scrollWidth = tabWidth - 50
 		
 		self.initializeModuleTab(tabHeight, tabWidth)
 		
@@ -60,9 +60,9 @@ class Blueprint_UI:
 		cmds.scriptJob(kill=self.jobNum)
 		
 	def initializeModuleTab(self, tabHeight, tabWidth):
-		moduleSpecific_scrollHeight = 120
-		scrollHeight = tabHeight - moduleSpecific_scrollHeight - 163
-		scrollHeight = 200 #tabHeight temp value
+		moduleSpecific_scrollHeight = 160
+		#scrollHeight = tabHeight - moduleSpecific_scrollHeight -160
+		scrollHeight = 150 #tabHeight temp value
 		
 		#will contain all the controls and buttons
 		self.UIElements["moduleColumn"] = cmds.columnLayout(adj=True, rs=3)
@@ -112,9 +112,9 @@ class Blueprint_UI:
 		cmds.setParent(self.UIElements["moduleColumn"])
 		cmds.separator()
 		
-		self.UIElements["moduleSpecificRowColumnLayout"] = cmds.rowColumnLayout(nr=1, rowAttach=[1, "both", 0], rowHeight=[1,moduleSpecific_scrollHeight])
+		self.UIElements["moduleSpecificRowColumnLayout"] = cmds.rowColumnLayout(nr=1, rowAttach=[1, "both", 0], rowHeight=[1,moduleSpecific_scrollHeight], )
 		self.UIElements["moduleSpecific_Scroll"] = cmds.scrollLayout(hst=0)
-		self.UIElements["moduleSpecific_column"] = cmds.columnLayout(columnWidth=self.scrollWidth, columnAttach=["both", 5], rs=2)
+		self.UIElements["moduleSpecific_column"] = cmds.columnLayout(columnWidth=400, columnAttach=["both", 5], rs=2)
 		cmds.setParent(self.UIElements["moduleColumn"])
 		cmds.separator()
 		
@@ -267,4 +267,17 @@ class Blueprint_UI:
 				cmds.button(self.UIElements["deleteModuleBtn"], edit=True, enable=controlEnable)
 				
 				cmds.textField(self.UIElements["moduleName"], edit=True, enable=controlEnable, text=userSpecifiedName)
+				
+				self.createModuleSpecificControls()
+			
 			self.createScriptJob()
+			
+	def createModuleSpecificControls(self):
+			existingControls = cmds.columnLayout(self.UIElements["moduleSpecific_column"], q=True, childArray=True)
+			if existingControls != None:
+				cmds.deleteUI(existingControls)
+				
+			cmds.setParent(self.UIElements["moduleSpecific_column"])
+			
+			if self.moduleInstance != None:
+				self.moduleInstance.UI(self, self.UIElements["moduleSpecific_column"])

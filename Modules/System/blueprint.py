@@ -28,13 +28,7 @@ class Blueprint():
 		print "install_custom() method is not implemented by derived class"
 		
 	def lock_phase1(self):
-	
-		return None
-	
-	#Baseclass Methods	
-	def install(self):
-		cmds.namespace(setNamespace=":")
-		cmds.namespace(add=self.moduleNamespace)	#Gather and return all required information from this module's control object
+		#Gather and return all required information from this module's control object
 		
 		#jointPositions = list of joint positions, from root down the hierarchy
 		
@@ -47,6 +41,15 @@ class Blueprint():
 		#
 		#moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
 		#return moduleInfo
+		return None
+	
+	def UI_custom(self):
+		temp = 1
+	
+	#Baseclass Methods	
+	def install(self):
+		cmds.namespace(setNamespace=":")
+		cmds.namespace(add=self.moduleNamespace)	
 		
 		
 		#Two joints created with one parented to the other
@@ -473,4 +476,11 @@ class Blueprint():
 		cmds.lockNode(moduleContainer, lock=True, lockUnpublished=True)
 		#END TEMP
 			
+	def UI(self, blueprint_UI_instance, parentColumnLayout):
+		self.blueprint_UI_instance = blueprint_UI_instance
+		self.parentColumnLayout = parentColumnLayout
+		self.UI_custom()
 		
+	def createRotationOrderUIControl(self, joint):
+		jointName = utils.stripAllNamespaces(joint)[1]
+		attrControlGroup = cmds.attrControlGrp(attribute=joint+".rotateOrder", label=jointName)
