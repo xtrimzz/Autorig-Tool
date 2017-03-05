@@ -156,13 +156,13 @@ class Blueprint_UI:
 		
 		userSpecName = basename + str(newSuffix)
 		
-		#print userSpecName 
+		hookObj = self.findHookObjectFromSelection()
 	
 		mod =__import__("Blueprint."+module,{},{}, [module])
 		reload(mod)
 		
 		moduleClass = getattr(mod, mod.CLASS_NAME)
-		moduleInstance = moduleClass(userSpecName)
+		moduleInstance = moduleClass(userSpecName, hookObj)
 		moduleInstance.install()
 		
 		#Select the module outline and Make move Tool ACTIVE
@@ -206,7 +206,7 @@ class Blueprint_UI:
 			reload(mod)
 			
 			moduleClass = getattr(mod, mod.CLASS_NAME)
-			moduleInst = moduleClass(userSpecifiedName=module[1])
+			moduleInst = moduleClass(module[1], None)
 			
 			moduleInfo = moduleInst.lock_phase1()
 			
@@ -257,7 +257,7 @@ class Blueprint_UI:
 					reload(mod)
 					
 					moduleClass = getattr(mod, mod.CLASS_NAME)
-					self.moduleInstance = moduleClass(userSpecifiedName=userSpecifiedName)
+					self.moduleInstance = moduleClass(userSpecifiedName, None)
 					
 				cmds.button(self.UIElements["mirrorModuleBtn"], edit=True, enable=controlEnable)
 				cmds.button(self.UIElements["rehookBtn"], edit=True, enable=controlEnable)
@@ -299,3 +299,14 @@ class Blueprint_UI:
 		else:
 			cmds.select(clear=True)
 		
+	def findHookObjectFromSelection(self, *args):
+		selectedObjects = cmds.ls(selection=True, transforms=True)
+		
+		numberOfObjects = len(selectedObjects)
+		
+		hookObj = None
+		
+		if numberOfObjects != 0:
+			hookObj = selectedObjects[numberOfObjects - 1]
+			
+		return hookObj   

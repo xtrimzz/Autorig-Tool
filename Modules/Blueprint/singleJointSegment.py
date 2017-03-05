@@ -11,12 +11,12 @@ DESCRIPTION = "Create 2 joints, with control for ls joint's orientation and rota
 ICON = os.environ["RIGGING_TOOL_ROOT"] + "/Icons/_singleJointSeg.xpm" #calling from os path
 
 class SingleJointSegment(blueprintMod.Blueprint):
-	def __init__(self, userSpecifiedName):
+	def __init__(self, userSpecifiedName, hookObj):
 		print "Derived class constructor"
 		jointInfo = [["root_joint", [0.0, 0.0, 0.0]], ["end_joint",[4.0, 0.0,0.0]]]
 		
 		
-		blueprintMod.Blueprint.__init__(self, CLASS_NAME, userSpecifiedName, jointInfo)
+		blueprintMod.Blueprint.__init__(self, CLASS_NAME, userSpecifiedName, jointInfo, hookObj)
 		
 	def install_custom(self, joints):
 		self.createOrientationControl(joints[0], joints[1])

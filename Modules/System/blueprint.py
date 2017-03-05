@@ -12,7 +12,7 @@ reload(utils)
 #ICON = os.environ["RIGGING_TOOL_ROOT"] + "/Icons/_hand.xpm" #calling from os path
 
 class Blueprint():
-	def __init__(self,moduleName, userSpecifiedName, jointInfo ):
+	def __init__(self,moduleName, userSpecifiedName, jointInfo, hookObjectIn ):
 		print "Base class constructor"
 		self.moduleName = moduleName
 		self.userSpecifiedName = userSpecifiedName
@@ -22,6 +22,14 @@ class Blueprint():
 		self.containerName = self.moduleNamespace + ":module_container"
 		
 		self.jointInfo = jointInfo
+		
+		self.hookObject = None
+		if hookObjectIn != None:
+			partitionInfo = hookObjectIn.rpartition("_translation_control")
+			if partitionInfo[1] != "" and partitionInfo[2] == "":
+				self.hookObject = hookObjectIn
+				
+		print self.hookObject
 		
 	#Methods intended for overriding by derived classes
 	def install_custom( self, joints):
@@ -110,6 +118,8 @@ class Blueprint():
 			
 		rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset=False, name=joints[0]+"_[pointConstraint")
 		utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
+		
+		self.initialiseHook(translationControls[0])
 		
 		##Setup stretchy joint segments
 		for index in range(len(joints) - 1):
@@ -517,3 +527,64 @@ class Blueprint():
 			
 			cmds.lockNode(self.containerName, lock=True, lockUnpublished=True)
 			return True
+			
+	def initialiseHook(self, rootTranslationControl):
+		unhookedLocator = cmds.spaceLocator(name=self.moduleNamespace+":unhookedTarget")[0]
+		cmds.pointConstraint(rootTranslationControl, unhookedLocator, offset=[0, 0.001, 0])
+		cmds.setAttr(unhookedLocator+".visibility", 0)
+		
+		if self.hookObject == None: 
+			self.hookObject = unhookedLocator
+			
+		rootPos = cmds.xform(rootTranslationControl, q=True, worldSpace=True, translation=True)
+		targetPos = cmds.xform(self.hookObject, q=True, worldSpace=True, translation=True)
+		
+		cmds.select(clear=True)
+		
+		rootJointWithoutNamespace = "hook_root_joint"
+		rootJoint = cmds.joint(n=self.moduleNamespace+":"+rootJointWithoutNamespace, p=rootPos)
+		cmds.setAttr(rootJoint+".visibility", 0)
+		
+		targetJointWithoutNamespace = "hook_target_joint"
+		targetJoint = cmds.joint(n=self.moduleNamespace+":"+targetJointWithoutNamespace, p=targetPos)
+		cmds.setAttr(targetJoint+".visibility", 0)
+		
+		cmds.joint(rootJoint, edit=True, orientJoint="xyz", sao ="yup")
+		
+		hookGroup = cmds.group([rootJoint, unhookedLocator], name=self.moduleNamespace+":hook_grp", parent=self.moduleGrp)
+		
+		hookContainer = cmds.container(name=self.moduleNamespace+":hook_container")
+		utils.addNodeToContainer(hookContainer, hookGroup, ihb=True)
+		utils.addNodeToContainer(self.containerName, hookContainer)
+		
+		for joint in [rootJoint, targetJoint]:
+			jointName = utils.stripAllNamespaces(joint)[1]
+			cmds.container(hookContainer, edit=True, publishAndBind=[joint+".rotate", jointName+"_R"]) 
+			
+			
+		ikNodes = utils.basic_stretchy_IK(rootJoint, targetJoint, hookContainer, lockMinimumLength=False)
+		ikHandle = ikNodes["ikHandle"]
+		rootLocator = ikNodes["rootLocator"]
+		endLocator = ikNodes["endLocator"]
+		poleVectorLocator = ikNodes["poleVectorObject"]
+		
+		rootPointConstraint = cmds.pointConstraint(rootTranslationControl, rootJoint, maintainOffset=False, n=rootJoint+"_pointConstraint")[0]
+		targetPointConstraint = cmds.pointConstraint(self.hookObject, endLocator, maintainOffset=False, n=self.moduleNamespace+":hook_pointConstraint")[0]
+		
+		utils.addNodeToContainer(hookContainer, [rootPointConstraint, targetPointConstraint])
+
+		for node in [ikHandle, rootLocator, endLocator, poleVectorLocator]:
+			cmds.parent(node, hookGroup, absolute=True)
+			cmds.setAttr(node+".visibility", 0)
+			
+		objectNodes = self.createStretchyObject("/ControlObjects/Blueprint/hook_representation.ma","hook_representation_container", "hook_representation", rootJoint, targetJoint)
+		constrainedGrp = objectNodes[2]
+		cmds.parent(constrainedGrp, hookGroup, absolute=True)
+		
+		hookRepresentationContainer = objectNodes[0]
+		cmds.container(self.containerName, edit=True, removeNode=hookRepresentationContainer)
+		utils.addNodeToContainer(hookContainer, hookRepresentationContainer)
+			
+		
+		
+		
