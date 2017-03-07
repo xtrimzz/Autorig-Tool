@@ -12,7 +12,7 @@ ICON = os.environ["RIGGING_TOOL_ROOT"] + "/Icons/_singleJointSeg.xpm" #calling f
 
 class SingleJointSegment(blueprintMod.Blueprint):
 	def __init__(self, userSpecifiedName, hookObj):
-		print "Derived class constructor"
+		#print "Derived class constructor"
 		jointInfo = [["root_joint", [0.0, 0.0, 0.0]], ["end_joint",[4.0, 0.0,0.0]]]
 		
 		
@@ -54,8 +54,9 @@ class SingleJointSegment(blueprintMod.Blueprint):
 		jointRotationOrders.append(cmds.getAttr(joints[0]+".rotateOrder"))
 		
 		jointPreferredAngles = None
-		hookObject = None
-		rootTransform = True
+		hookObject = self.findHookObjectForLock()
+	
+		rootTransform = False
 		
 		moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform)
 		return moduleInfo
