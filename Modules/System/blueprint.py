@@ -634,6 +634,8 @@ class Blueprint():
 		if self.hookObject == oldHookObject:
 			return
 			
+		self.unconstrainRootFromHook()
+		
 		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
 		
 		hookConstraint = self.moduleNamespace+":hook_pointConstraint"
@@ -679,4 +681,56 @@ class Blueprint():
 			
 		cmds.lockNode(moduleContainer, lock=True, lockUnpublished=True)
 			
+	
+	def snapRootToHook(self):
+		rootControl = self.getTranslationControl(self.moduleNamespace+":"+self.jointInfo[0][0])
+		hookObject = self.findHookObject()
+		
+		if hookObject == self.moduleNamespace+":unhookedTarget" :
+			return
 			
+		hookObjectPos = cmds.xform(hookObject, q=True, worldSpace=True, translation=True)
+		cmds.xform(rootControl, worldSpace=True, absolute=True, translation=hookObjectPos)
+		
+		
+	def constrainRootToHook(self):
+		rootControl = self.getTranslationControl(self.moduleNamespace+":"+self.jointInfo[0][0])
+		hookObject = self.findHookObject()
+		
+		if hookObject == self.moduleNamespace+":unhookedTarget" :
+			return 
+			
+		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
+		
+		cmds.pointConstraint(hookObject, rootControl, maintainOffset=False, name=rootControl+"_hookConstraint")
+		cmds.setAttr(rootControl+".translate", l=True)
+		cmds.setAttr(rootControl+".visibility", l=False)
+		cmds.setAttr(rootControl+".visibility", 0)
+		cmds.setAttr(rootControl+".visibility", l=True)
+		
+		cmds.select(clear=True)
+		
+		cmds.lockNode(self.containerName, lock=True, lockUnpublished=True)
+		
+	def unconstrainRootFromHook(self):
+		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
+		
+		rootControl = self.getTranslationControl(self.moduleNamespace+":"+self.jointInfo[0][0])
+		rootControl_hookConstraint = rootControl+"_hookConstraint"
+		
+		if cmds.objExists(rootControl_hookConstraint):
+			cmds.delete(rootControl_hookConstraint)
+			
+			cmds.setAttr(rootControl+".translate", l=False)
+			cmds.setAttr(rootControl+".visibility", l=False)
+			cmds.setAttr(rootControl+".visibility", 1)
+			cmds.setAttr(rootControl+".visibility", l=True)
+			
+		cmds.lockNode(self.containerName, lock=True, lockUnpublished=True)
+		
+		
+	def isRootConstrained(self):
+		rootControl = self.getTranslationControl(self.moduleNamespace+":"+self.jointInfo[0][0])
+		rootControl_hookConstraint = rootControl+"_hookConstraint"
+		
+		return cmds.objExists(rootControl_hookConstraint)

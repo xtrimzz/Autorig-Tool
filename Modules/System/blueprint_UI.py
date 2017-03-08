@@ -98,8 +98,8 @@ class Blueprint_UI:
 		self.UIElements["moduleButtons_rowColumn"] = cmds.rowColumnLayout(numberOfColumns=3, ro=[(1, "both", 2),(2, "both", 2), (3, "both", 2)], columnAttach=[ (1, "both", 3),(2,"both", 3),(3,"both",3)], columnWidth=[(1,columnWidth),(2, columnWidth),(3, columnWidth)] )
 		
 		self.UIElements["rehookBtn"] = cmds.button(enable=False, label="Re-hook", c=self.rehookModule_setup )
-		self.UIElements["snapRootBtn"] = cmds.button(enable=False, label="Snap Root > Hook")
-		self.UIElements["constrainRootBtn"] = cmds.button(enable=False, label="Constrain Root > Hook")
+		self.UIElements["snapRootBtn"] = cmds.button(enable=False, label="Snap Root > Hook", c=self.snapRootToHook)
+		self.UIElements["constrainRootBtn"] = cmds.button(enable=False, label="Constrain Root > Hook", c=self.constrainRootToHook)
 		
 		self.UIElements["groupSelectedBtn"] = cmds.button(label="Group Selected")
 		self.UIElements["ungroupBtn"] = cmds.button(enable=False, label="Ungroup")
@@ -252,6 +252,8 @@ class Blueprint_UI:
  							 
 				controlEnable = False
 				userSpecifiedName = ""
+				constrainCommand = self.constrainRootToHook 
+				constrainLabel = "Constrain Root > Hook"
  				
 				if selectedModuleNamespace != None:
 					controlEnable = True
@@ -263,10 +265,14 @@ class Blueprint_UI:
 					moduleClass = getattr(mod, mod.CLASS_NAME)
 					self.moduleInstance = moduleClass(userSpecifiedName, None)
 					
+					if self.moduleInstance.isRootConstrained():
+						constrainCommand = self.unconstrainRootFromHook
+						constrainLabel = "Unconstrain Root"
+					
 				cmds.button(self.UIElements["mirrorModuleBtn"], edit=True, enable=controlEnable)
 				cmds.button(self.UIElements["rehookBtn"], edit=True, enable=controlEnable)
 				cmds.button(self.UIElements["snapRootBtn"], edit=True, enable=controlEnable)
-				cmds.button(self.UIElements["constrainRootBtn"], edit=True, enable=controlEnable)
+				cmds.button(self.UIElements["constrainRootBtn"], edit=True, enable=controlEnable, label=constrainLabel, c=constrainCommand )
 				
 				cmds.button(self.UIElements["deleteModuleBtn"], edit=True, enable=controlEnable, c=self.deleteModule)
 				
@@ -341,3 +347,16 @@ class Blueprint_UI:
 			
 		self.createScriptJob()
 		
+	def snapRootToHook(self, *args):
+		self.moduleInstance.snapRootToHook()
+		
+	def constrainRootToHook(self, *args):
+		self.moduleInstance.constrainRootToHook()
+		
+		cmds.button(self.UIElements["constrainRootBtn"], edit=True, label="Unconstrain Root", c=self.unconstrainRootFromHook)
+		
+	def unconstrainRootFromHook(self, *args):
+		self.moduleInstance.unconstrainRootFromHook()
+		
+		cmds.button(self.UIElements["constrainRootBtn"], edit=True, label="Constrain Root > Hook", c=self.constrainRootToHook)
+	
