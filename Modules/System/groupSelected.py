@@ -130,5 +130,63 @@ class GroupSelected:
 		cmds.delete(self.tempGroupTransform)
 	
 	def acceptWindow(self, *args):
-		print "Accept"
+		groupName = cmds.textField(self.UIElements["groupName"], q=True, text=True)
+		
+		if self.createGroup(groupName) != None:
+			cmds.deleteUI(self.UIElements["window"])
+			
+		
+	def createGroup(self, groupName):
+		fullGroupName = "Group__"+groupName
+		if cmds.objExists(fullGroupName):
+			cmds.confirmDialog(title="Name Conflict", message="Group\"" +groupName+ "\" already exists", button="Accept", defaultButton="Accept")
+			return None
+		
+		groupTransform = cmds.rename(self.tempGroupTransform, fullGroupName)
+		
+		groupContainer = "Group_container"
+		if not cmds.objExists(groupContainer):
+			cmds.container(name=groupContainer)
+			
+		containers = [groupContainer]
+		
+		for obj in self.objectsToGroup:
+			if obj.find("Group__") == 0:
+				continue
+				
+			objNamespace = utils.stripLeadingNamespace(obj)[0]
+			containers.append(objNamespace+":module_container")
+			
+		for c in containers:
+			cmds.lockNode(c, lock=False, lockUnpublished=False)
+		
+		if len(self.objectsToGroup) != 0:
+			tempGroup = cmds.group(self.objectsToGroup, absolute=True)
+			groupParent = cmds.listRelatives(tempGroup, parent=True)
+			
+			if groupParent !=None:
+				cmds.parent(groupTransform, groupParent[0], absolute=True)
+			cmds.parent(self.objectsToGroup, groupTransform, absolute=True)
+			cmds.delete(tempGroup)
+			
+		self.addGroupToContainer(groupTransform)
+		for c in containers:
+			cmds.lockNode(c, lock=True, lockUnpublished=True)
+			
+		cmds.setToolTo("moveSuperContext")
+		cmds.select(groupTransform, replace=True)
+		
+		return groupTransform 
+		
+			
+		
+	def addGroupToContainer(self, group):
+		groupContainer = "Group_container"
+		utils.addNodeToContainer(groupContainer, group, includeShapes=True)
+		
+		groupName = group.partition("Group__")[2]
+		
+		cmds.container(groupContainer, edit=True, publishAndBind=[group+".translate", groupName+"_t"])
+		cmds.container(groupContainer, edit=True, publishAndBind=[group+".rotate", groupName+"_r"])
+		cmds.container(groupContainer, edit=True, publishAndBind=[group+".globalScale", groupName+"_globalScale"])
 	
