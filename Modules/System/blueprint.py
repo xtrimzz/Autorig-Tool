@@ -528,12 +528,26 @@ class Blueprint():
 			moduleInst.rehook(None)
 			
 			
-			
+		moduleTransform = self.moduleNamespace+":module_transform"
+		moduleTransformParent = cmds.listRelatives(moduleTransform, parent=True)
 		
 		cmds.delete(self.containerName)
 		
 		cmds.namespace(setNamespace=":")
 		cmds.namespace(removeNamespace=self.moduleNamespace)
+		
+		if moduleTransformParent != None:
+			parentGroup = moduleTransformParent[0]
+			
+			children = cmds.listRelatives(parentGroup, children=True)
+			children = cmds.ls(children, transforms=True)
+			
+			if len(children) == 0:
+				cmds.select(parentGroup, replace=True)
+				import System.groupSelected as groupSelected
+				reload(groupSelected)
+				
+				groupSelected.UngroupSelected()
 		
 	def renameModuleInstance(self, newName):
 		if newName == self.userSpecifiedName:
