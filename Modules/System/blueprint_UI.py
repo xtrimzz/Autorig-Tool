@@ -215,6 +215,13 @@ class Blueprint_UI:
 		for module in moduleInstances:
 			module[0].lock_phase2(module[1])
 			
+			
+		groupContainer = "Group_container"
+		if cmds.objExists(groupContainer):
+			cmds.lockNode(groupContainer, lock=False, lockUnpublished=False)
+			cmds.delete(groupContainer)
+			
+			
 		for module in moduleInstances:
 			hookObject = module[1][4]
 			module[0].lock_phase3(hookObject)
