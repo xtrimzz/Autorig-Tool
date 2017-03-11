@@ -99,8 +99,8 @@ class MirrorModule:
 		if cmds.window("mirrorModule_UI_window", exists=True):
 			cmds.deleteUI("mirrorModule_UI_window")
 			
-		windowWidth = 300
-		windowHeight = 400
+		windowWidth = 400
+		windowHeight = 500
 		self.UIElements["window"] = cmds.window("mirrorModule_UI_window", width=windowWidth, height=windowHeight, title="Mirror Modules(s)", sizeable=False)
 		
 		self.UIElements["scrollLayout"] = cmds.scrollLayout(hst=0)
@@ -128,9 +128,73 @@ class MirrorModule:
 		for module in self.moduleNames:
 			cmds.text(label = module + " >> ")
 			self.UIElements["moduleName_"+module] = cmds.textField(enable=True, text= module + "_mirror")
+			
+		cmds.setParent(self.UIElements["topColumnLayout"])
+		cmds.separator()
+					
+		if self.sameMirrorSettingsForAll:
+			self.generateMirrorFunctionControls(None, scrollWidth)
+		else:
+			for module in self.moduleNames:
+				cmds.setParent(self.UIElements["topColumnLayout"])
+				self.generateMirrorFunctionControls(module, scrollWidth)
 				
+		cmds.setParent(self.UIElements["topColumnLayout"])
+		cmds.separator()
+		
+		self.UIElements["button_row"] = cmds.rowLayout(nc=2, columnWidth=[(1,columnWidth),(2,columnWidth)],cat=[(1,"both",10),(2,"both",10)], columnAlign=[(1,"center"),(2,"center")])
+		
+		cmds.button(label="Accept", c=self.acceptWindow)
+		cmds.button(label="Cancel", c=self.cancelWindow)
+		
+		
+		
 		cmds.showWindow(self.UIElements["window"])
 		
+	
+	def generateMirrorFunctionControls(self, moduleName, scrollWidth):
+		rotationRadioCollection = "rotation_radioCollection_all"
+		translationRadioCollection = "translation_raidoCollection_all"
+		textLabel = "Mirror Settings:"
+		
+		behaviourName = "behaviour__"
+		orientationName = "orientation__"
+		mirroredName = "mirrored__"
+		worldSpaceName = "worldSpace__"
+		
+		if moduleName != None:
+			rotationRadioCollection ="rotation_radioCollection_" + moduleName
+			translationRadioCollection = "translation_raidoCollection_" + moduleName
+			textLabel = moduleName + "Mirror Settings:"
 			
+			behaviourName = "behaviour__" + moduleName
+			orientationName = "orientation__" + moduleName
+			mirroredName = "mirrored__" + moduleName
+			worldSpaceName = "worldSpace__" + moduleName
 			
+		cmds.text(label=textLabel)
+		
+		mirrorSettings_textWidth = 80
+		mirrorSettings_columnWidth = (scrollWidth - mirrorSettings_textWidth)/2
+		
+		cmds.rowColumnLayout(nc=3, columnAttach=(1, "right", 0), columnWidth=[(1, mirrorSettings_textWidth), (2, mirrorSettings_columnWidth),(3,mirrorSettings_columnWidth)])
+		
+		cmds.text(label="Rotation Mirror Function:")
+		self.UIElements[rotationRadioCollection] = cmds.radioCollection()
+		cmds.radioButton(behaviourName, label="Behaviour", select=True)
+		cmds.radioButton(orientationName, label="Orientation", select=False)
+		
+		cmds.text(label="Translation Mirror Function: ")
+		self.UIElements[translationRadioCollection] = cmds.radioCollection()
+		cmds.radioButton(mirroredName, label="Mirrored", select=True)
+		cmds.radioButton(worldSpaceName, label="World Space", select=False)
+		
+		cmds.setParent(self.UIElements["topColumnLayout"])
+		cmds.text(label="")
 			
+	def cancelWindow(self, *args):
+		cmds.deleteUI(self.UIElements["window"])
+
+	
+	def acceptWindow(self, *args):
+		print "ACCEPT"
