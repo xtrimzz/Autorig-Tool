@@ -197,4 +197,44 @@ class MirrorModule:
 
 	
 	def acceptWindow(self, *args):
-		print "ACCEPT"
+		# a moduleInfo entry = (originalModule, mirroredModuleName, mirrorPlane, rotationFunction, translationFunction)
+		self.moduleInfo = []
+		
+		self.mirrorPlane = cmds.radioCollection(self.UIElements["mirrorPlane_radioCollection"], q=True, select=True)
+		
+		for i in range(len(self.modules)):
+			originalModule = self.modules[i]
+			originalModuleName = self.moduleNames[i]
+			
+			originalModulePrefix = originalModule.partition("__")[0]
+			mirroredModuleUserSpecifiedName = cmds.textField(self.UIElements["moduleName_"+originalModuleName], q=True, text=True)
+			mirroredModuleName = originalModulePrefix + "__" + mirroredModuleUserSpecifiedName
+			
+			if utils.doesBlueprintUserSpecifiedNameExist(mirroredModuleUserSpecifiedName):
+				cmds.confirmDialog(title="Name Conflict", message="Name \""+ mirroredModuleUserSpecifiedName + "\" already exists, aborting mirror.", button=["Accept"], defaultButton="Accept")
+				return
+				
+			rotationFunction = ""
+			translationFunction = ""
+			
+			if self.sameMirrorSettingsForAll == True:
+				rotationFunction = cmds.radioCollection(self.UIElements["rotation_radioCollection_all"], q=True, select=True)
+				translationFunction = cmds.radioCollection(self.UIElements["translation_raidoCollection_all"], q=True, select=True)
+			else:	
+				rotationFunction = cmds.radioCollection(self.UIElements["rotation_radioCollection_"+originalModuleName], q=True, select=True)
+				translationFunction = cmds.radioCollection(self.UIElements["translation_raidoCollection_"+originalModuleName], q=True, select=True)
+				
+			rotationFunction = rotationFunction.partition("__")[0]
+			translationFunction = translationFunction.partition("__")[0]
+			
+			self.moduleInfo.append([originalModule, mirroredModuleName, self.mirrorPlane, rotationFunction, translationFunction])
+		
+		cmds.deleteUI(self.UIElements["window"])
+		
+		self.mirrorModules()
+		
+		
+	def mirrorModules(self):
+		print self.moduleInfo
+				
+				
