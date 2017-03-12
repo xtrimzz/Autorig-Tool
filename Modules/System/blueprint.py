@@ -30,7 +30,8 @@ class Blueprint():
 				self.hookObject = hookObjectIn
 				
 		self.canBeMirrored = True
-				
+			
+		self.mirrored = False	
 	
 		
 	#Methods intended for overriding by derived classes
@@ -756,3 +757,15 @@ class Blueprint():
 		
 	def canModuleBeMirrored(self):
 		return self.canBeMirrored
+		
+	def mirror(self, originalModule, mirrorPlane, rotationFunction, translationFunction):
+		self.mirrored=True
+		self.originalModule = originalModule
+		self.mirrorPlane = mirrorPlane
+		self.rotationFunction = rotationFunction
+		
+		print self.mirrored
+		print self.originalModule
+		print self.mirrorPlane
+		print self.rotationFunction
+		print translationFunction

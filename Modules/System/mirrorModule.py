@@ -290,7 +290,19 @@ class MirrorModule:
 			mirrorModulesProgress += mirrorModulesProgress_ProgressIncrement
 			cmds.progressWindow(mirrorModulesProgress_UI, eidt=True, pr=mirrorModulesProgress)
 			
-				
+		mirrorModulesProgess_progessIncrement = mirrorModulesProgress_stage2_proportion/len(self.moduleInfo)
+		for module in self.moduleInfo:
+			newUserSpecifiedName = module[1].partition("__")[2]
+			
+			mod = __import__("Blueprint."+module[5], {}, {}, [module[5]])
+			reload(mod)
+			
+			moduleClass = getattr(mod, mod.CLASS_NAME)
+			moduleInst = moduleClass(newUserSpecifiedName, None)
+			
+			moduleInst.mirror(module[0], module[2], module[3], module[4])
+			mirrorModulesProgress += mirrorModulesProgess_progessIncrement
+			cmds.progressWindow(mirrorModulesProgress_UI, edit=True, pr=mirrorModulesProgress)
 				
 		
 		
