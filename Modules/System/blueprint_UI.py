@@ -171,11 +171,14 @@ class Blueprint_UI:
 		cmds.setToolTo("moveSuperContext")
 	
 	def lock(self, *args):
+		
 		result = cmds.confirmDialog(messageAlign="center", title="Lock Blueprints", message="The action of locking a character will convert the current blueprint modules to joints. \nThis action cannot be undone. \nModifications to the blueprint system cannot be made after this point. \n Do you want to continue?", button=["Accept", "Cancel"], defaultButton="Accept", cancelButton="Cancel", dismissString="Cancel")
 		
 		if result != "Accept":
 			return
 			
+		self.deleteScriptJob()
+		
 		moduleInfo = [] #store [module, userSpecifiedName] pairs
 		
 		cmds.namespace(setNamespace=":")

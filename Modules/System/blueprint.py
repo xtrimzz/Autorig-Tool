@@ -413,6 +413,13 @@ class Blueprint():
 		
 		rootTransform = moduleInfo[5]
 		
+		
+		mirrorInfo = None
+		oldModuleGrp = self.moduleNamespace+":module_grp"
+		if cmds.attributeQuery("mirrorInfo", n=oldModuleGrp, exists=True):
+			mirrorInfo = cmds.getAttr(oldModuleGrp+".mirrorInfo")
+		
+		
 		#Delete our blueprint controls
 		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
 		
@@ -561,6 +568,13 @@ class Blueprint():
 		cmds.connectAttr(hookGrp+".scaleY", moduleGrp+".hierarchicalScale")
 		
 		
+		if mirrorInfo != None:
+			enumNames = "node:x:y:z"
+			cmds.select(moduleGrp)
+			cmds.addAttr(at="enum", enumName=enumNames, longName="mirrorInfo", k=False)
+			cmds.setAttr(moduleGrp+".mirrorInfo", mirrorInfo)
+			
+		 
 			
 	def UI(self, blueprint_UI_instance, parentColumnLayout):
 		self.blueprint_UI_instance = blueprint_UI_instance
@@ -600,6 +614,14 @@ class Blueprint():
 			moduleInst = moduleClass(module[1], None)
 			moduleInst.rehook(None)
 			
+			
+		if cmds.attributeQuery("mirrorLinks", node=self.moduleNamespace+":module_group", exists=True):
+			mirrorLinks = cmds.getAttr(self.moduleNamespace+":module_grp.mirrorLinks")
+			
+			linkedBlueprint = mirrorLinks.rpartition("__")[0]
+			cmds.lockNode(linkedBlueprint+":module_container", lock=False, lockUnpublished=False)
+			cmds.deleteAttr(linkBlueprint+":module_grp.mirrorLinks")
+			cmds.lockNode(linkedBlueprint+":module_container", lock=True, lockUnpublished=True )
 			
 		moduleTransform = self.moduleNamespace+":module_transform"
 		moduleTransformParent = cmds.listRelatives(moduleTransform, parent=True)
