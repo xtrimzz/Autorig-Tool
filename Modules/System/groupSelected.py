@@ -76,7 +76,7 @@ class GroupSelected:
 		for obj in selectedObjects:
 			valid = False
 			
-			if obj.find("module_transform") != 1:
+			if obj.find("module_transform") != -1:
 				splitString = obj.rsplit("module_transform")
 				if splitString[1] == "":
 					valid = True
@@ -191,6 +191,22 @@ class GroupSelected:
 		cmds.container(groupContainer, edit=True, publishAndBind=[group+".globalScale", groupName+"_globalScale"])
 	
 	
+	def createGroupAtSpecified(self,name, targetGroup, parent):
+		self.createTemporaryGroupRepresentation()
+		
+		parentConstraint = cmds.parentConstraint(targetGroup, self.tempGroupTransform, maintainOffset=False)[0]
+		cmds.delete(parentConstraint)
+		
+		scale = cmds.getAttr(targetGroup+".globalScale")
+		cmds.setAttr(self.tempGroupTransform+".globalScale", scale)
+		
+		if parent != None:
+			cmds.parent(self.tempGroupTransform, parent, absolute=True)
+			
+		newGroup = self.createGroup(name)
+		
+		return newGroup
+	
 class UngroupSelected():
 	def __init__(self):
 		selectedObjects = cmds.ls(selection=True, transforms=True)
@@ -254,3 +270,5 @@ class UngroupSelected():
 					modules.extend(self.findChildModules(child))
 					
 		return modules
+		
+	

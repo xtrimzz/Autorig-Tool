@@ -57,6 +57,9 @@ class Blueprint():
 	def UI_custom(self):
 		temp = 1
 	
+	def mirror_custom(self):
+		print "mirror_custom() method is not implemented by derived class"
+	
 	#Baseclass Methods	
 	def install(self):
 		cmds.namespace(setNamespace=":")
@@ -108,6 +111,44 @@ class Blueprint():
 			
 			index+= 1
 		#end for loop
+		
+		if self.mirrored:
+			mirrorXY = False
+			mirrorYZ = False
+			mirrorXZ = False
+			
+			if self.mirrorPlane == "XY":
+				mirrorXY = True
+			elif self.mirrorPlane == "YZ":
+				mirrorYZ = True
+			elif self.mirrorPlane == "XZ":
+				mirrorXZ = True
+				
+			mirrorBehavior = False
+			if self.rotationFunction == "behaviour":
+				mirrorBehavior = True
+				
+			
+			mirroredNodes = cmds.mirrorJoint(joints[0],mirrorXY=mirrorXY, mirrorYZ=mirrorYZ, mirrorXZ=mirrorXZ, mirrorBehavior=mirrorBehavior)
+			
+			cmds.delete(joints)
+			
+			mirroredJoints = []
+			for node in mirroredNodes:
+				if cmds.objectType (node, isType="joint"):
+					mirroredJoints.append(node)
+				else:
+					cmds.delete(node)
+			
+			index = 0
+			for joint in mirroredJoints:
+				jointName = self.jointInfo[index][0]
+				newJointName = cmds.rename(joint, self.moduleNamespace + ":" +jointName)
+				
+				self.jointInfo[index][1] = cmds.xform(newJointName, q=True, worldSpace=True, translation=True)
+				
+				index += 1
+		
 		
 		#lock the parent joint	
 		cmds.parent(joints[0], self.jointsGrp, absolute=True)
@@ -191,6 +232,10 @@ class Blueprint():
 		rootLocator = ikNodes["rootLocator"]
 		endLocator = ikNodes["endLocator"]
 		
+		if self.mirrored:
+			if self.mirrorPlane == "XZ":
+				cmds.setAttr(ikHandle+".twist", 90)
+		
 		childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset=False, n=endLocator+"_pointConstraint")[0]
 		
 		utils.addNodeToContainer(self.containerName, [ poleVectorLocatorGrp, parentConstraint, childPointConstraint], ihb=True)
@@ -244,6 +289,31 @@ class Blueprint():
 		self.moduleTransform = cmds.rename("controlGroup_control", self.moduleNamespace+":module_transform")
 		
 		cmds.xform(self.moduleTransform, worldSpace=True, absolute=True, translation=rootPos)
+		
+		
+		if self.mirrored:
+			duplicateTransform = cmds.duplicate(self.originalModule+":module_transform", parentOnly=True, name="TEMP_TRANSFORM")[0]
+			emptyGroup = cmds.group(empty=True)
+			cmds.parent(duplicateTransform, emptyGroup, absolute=True)
+			
+			scaleAttr = ".scaleX"
+			if self.mirrorPlane == "XZ":
+				scaleAttr =".scaleY"
+			elif self.mirrorPlane == "XY":
+				scaleAttr = ".scaleZ"
+				
+			cmds.setAttr(emptyGroup+scaleAttr, -1)
+			
+			parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
+			cmds.delete(parentConstraint)
+			cmds.delete(emptyGroup)
+			
+			tempLocator = cmds.spaceLocator()[0]
+			scaleConstraint = cmds.scaleConstraint(self.originalModule+":module_transform" , tempLocator, maintainOffset=False)[0]
+			scale = cmds.getAttr(tempLocator+".scaleX")
+			cmds.delete([tempLocator, scaleConstraint])
+			
+			cmds.xform(self.moduleTransform, objectSpace=True, scale=[scale,scale, scale])
 		
 		utils.addNodeToContainer(self.containerName, self.moduleTransform, ihb=True)
 		
@@ -740,7 +810,7 @@ class Blueprint():
 			
 			cmds.setAttr(rootControl+".translate", l=False)
 			cmds.setAttr(rootControl+".visibility", l=False)
-			cmds.setAttr(rootControl+".visibility", 1)
+			cmds.setAttr(rootControl+".visibility", l=False)
 			cmds.setAttr(rootControl+".visibility", l=True)
 			
 			cmds.select(rootControl, replace=True)
@@ -764,8 +834,98 @@ class Blueprint():
 		self.mirrorPlane = mirrorPlane
 		self.rotationFunction = rotationFunction
 		
-		print self.mirrored
-		print self.originalModule
-		print self.mirrorPlane
-		print self.rotationFunction
-		print translationFunction
+		self.install()
+
+		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
+		
+		for jointInfo in self.jointInfo:
+			jointName = jointInfo[0]
+			
+			originalJoint = self.originalModule + ":" + jointName
+			newJoint = self.moduleNamespace + ":" + jointName
+			
+			originalRotationOrder = cmds.getAttr(originalJoint + ".rotateOrder")
+			cmds.setAttr(newJoint + ".rotateOrder", originalRotationOrder)
+			
+		index = 0
+		for jointInfo in self.jointInfo:
+			mirrorPoleVectorLocator = False
+			if index < len(self.jointInfo) - 1:
+				mirrorPoleVectorLocator = True
+				
+			jointName = jointInfo[0]
+			
+			originalJoint = self.originalModule + ":" + jointName
+			newJoint  = self.moduleNamespace + ":" + jointName
+			
+			originalTranslationControl = self.getTranslationControl(originalJoint)
+			newTranslationControl = self.getTranslationControl(newJoint)
+			
+			originalTranslationControlPosition = cmds.xform(originalTranslationControl, q=True, worldSpace=True, translation=True)
+			
+			if self.mirrorPlane == "YZ" : 
+				originalTranslationControlPosition[0] *= -1
+			elif self.mirrorPlane == "XZ":
+				originalTranslationControlPosition[1] *= -1
+			elif self.mirrorPlane == "XY":
+				originalTranslationControlPosition[2] *= -1
+				
+			cmds.xform(newTranslationControl, worldSpace=True, absolute=True, translation=originalTranslationControlPosition)
+			
+			if mirrorPoleVectorLocator:
+				originalPoleVectorLocator = originalTranslationControl + "_poleVectorLocator"
+				newPoleVectorLocator = newTranslationControl + "_poleVectorLocator"
+				originalPoleVectorLocatorPosition = cmds.xform(originalPoleVectorLocator, q=True, worldSpace=True, translation=True)
+				
+				if self.mirrorPlane == "YZ" : 
+					originalPoleVectorLocatorPosition[0] *= -1
+				elif self.mirrorPlane == "XZ":
+					originalPoleVectorLocatorPosition[1] *= -1
+				elif self.mirrorPlane == "XY":
+					originalPoleVectorLocatorPosition[2] *= -1
+					
+				cmds.xform(newPoleVectorLocator, worldSpace=True, absolute=True, translation=originalPoleVectorLocatorPosition)
+			
+			index += 1
+		
+		self.mirror_custom(originalModule) 
+		
+		moduleGroup = self.moduleNamespace+":module_grp"
+		cmds.select(moduleGroup, replace=True)
+		enumNames = "none:x:y:z"
+		cmds.addAttr(at="enum", enumName=enumNames, longName="mirrorInfo", k=False)
+
+		enumValue = 0
+		if translationFunction == "mirrored":
+			if mirrorPlane == "YZ":
+				enumValue = 1
+			elif mirrorPlane == "XZ":
+				enumValue = 2
+			elif mirrorPlane == "XY":
+				enumValue = 3
+				
+		cmds.setAttr(moduleGroup+".mirrorInfo", enumValue)
+
+		linkedAttribute = "mirrorLinks"
+		
+		cmds.lockNode(originalModule+":module_container", lock=False, lockUnpublished=False)
+
+		for moduleLink in (( originalModule, self.moduleNamespace) ,(self.moduleNamespace, originalModule) ):
+			moduleGroup = moduleLink[0] + ":module_grp"
+			attributeValue = moduleLink[1] + "__"
+			
+			if mirrorPlane == "YZ":
+				attributeValue += "X"
+			elif mirrorPlane == "XZ":
+				attributeValue += "Y"
+			elif mirrorPlane == "XY":
+				attributeValue += "Z"
+				
+			cmds.select(moduleGroup)
+			cmds.addAttr(dt="string", longName=linkedAttribute, k=False)
+			cmds.setAttr(moduleGroup+"."+ linkedAttribute, attributeValue, type="string")
+			
+		for c in [originalModule+":module_container", self.containerName]:
+			cmds.lockNode(c, lock=True, lockUnpublished=True)
+		
+		cmds.select(clear=True)

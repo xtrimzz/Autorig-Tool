@@ -304,11 +304,98 @@ class MirrorModule:
 			mirrorModulesProgress += mirrorModulesProgess_progessIncrement
 			cmds.progressWindow(mirrorModulesProgress_UI, edit=True, pr=mirrorModulesProgress)
 				
+		mirrorModulesProgress_progressIncrement = mirrorModulesProgress_stage3_proportion/len(self.moduleInfo)
+		for module in self.moduleInfo: 
+			newUserSpecifiedName = module[1].partition("__")[2]
+			
+			mod = __import__("Blueprint."+module[5], {}, {}, [module[5]])
+			reload(mod)
+			
+			moduleClass = getattr(mod, mod.CLASS_NAME)
+			moduleInst = moduleClass(newUserSpecifiedName, None)
+			
+			moduleInst.rehook(module[6])
+			
+			hookConstrained = module[7]
+			if hookConstrained:
+				moduleInst.constrainRootToHook()
+				
+			mirrorModulesProgress += mirrorModulesProgress_progressIncrement
+			cmds.progressWindow(mirrorModulesProgress_UI, edit=True, pr=mirrorModulesProgress)
 		
 		
+		if self.group != None:
+			cmds.lockNode("Group_container", lock=False, lockUnpublished=False)
+			
+			groupParent = cmds.listRelatives(self.group, parent=True)
+			
+			if groupParent != None:
+				groupParent = groupParent[0]
+				
+			self.progressGroup(self.group, groupParent)
+			cmds.lockNode("Group_container", lock=True, lockUnpublished=True)
+			
+			cmds.select(clear=True)
+			
 		cmds.progressWindow(mirrorModulesProgress_UI, edit=True, endProgress=True)
 		
 		utils.forceSceneUpdate()
 		
 				
+	def progressGroup(self, group, parent):
+		import System.groupSelected as groupSelected
+		reload(groupSelected)
+		
+		tempGroup = cmds.duplicate(group, parentOnly=True, inputConnections=True)[0]
+		emptyGroup = cmds.group(empty=True)
+		cmds.parent(tempGroup, emptyGroup, absolute=True)
+		
+		scaleAxis = ".scaleX"
+		if self.mirrorPlane == "XZ":
+			scaleAxis = ".scaleY"
+		elif self.mirrorPlane == "XY":
+			scaleAxis = ".scaleZ"
+			
+		cmds.setAttr(emptyGroup+scaleAxis, -1)
+		
+		instance = groupSelected.GroupSelected()
+		groupSuffix = group.partition("__")[2]
+		newGroup = instance.createGroupAtSpecified(groupSuffix+"_mirror", tempGroup, parent)
+		
+		cmds.lockNode("Group_container", lock=False, lockUnpublished=False)
+		cmds.delete(emptyGroup)
+		
+		for moduleLink in ((group, newGroup), (newGroup, group)):
+			attributeValue = moduleLink[1] + "__"
+			
+			if self.mirrorPlane == "YZ":
+				attributeValue += "X"
+			elif self.mirrorPlane == "XZ":
+				attributeValue += "Y"
+			elif self.mirrorPlane == "XY":
+				attributeValue += "Z"
 				
+			cmds.select(moduleLink[0])
+			cmds.addAttr(dt="string", longName="mirrorLinks", k=False)
+			cmds.setAttr(moduleLink[0]+ ".mirrorLinks", attributeValue, type="string")
+			
+		cmds.select(clear=True)
+		
+		children = cmds.listRelatives(group, children=True)
+		children = cmds.ls(children, transforms=True)
+		
+		for child in children:
+			if child.find("Group__") == 0:
+				self.progressGroup(child, newGroup)
+			else:
+				childNamespaces = utils.stripAllNamespaces(child)
+				if childNamespaces != None and childNamespaces[1] == "module_transform":
+					for module in self.moduleInfo:
+						if childNamespaces[0] == module[0]:
+							moduleContainer = module[1] + ":module_container"
+							cmds.lockNode(moduleContainer, lock=False, lockUnpublished=False)
+							
+							moduleTransform = module[1] + ":module_transform"
+							cmds.parent(moduleTransform, newGroup, absolute=True)
+							
+							cmds.lockNode(moduleContainer, lock=True, lockUnpublished=True)
