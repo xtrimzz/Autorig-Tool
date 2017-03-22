@@ -1,7 +1,7 @@
 import os
 import maya.cmds as cmds
 import System.blueprint as blueprintMod
-reload(blueprintMod)
+#reload(blueprintMod)
 
 #Each module must have a unique class name
 CLASS_NAME = "SingleJointSegment"
