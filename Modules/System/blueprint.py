@@ -1,6 +1,9 @@
 
 import os
 import maya.cmds as cmds
+
+from functools import partial
+
 import System.utils as utils
 reload(utils)
 
@@ -584,6 +587,23 @@ class Blueprint():
 	def createRotationOrderUIControl(self, joint):
 		jointName = utils.stripAllNamespaces(joint)[1]
 		attrControlGroup = cmds.attrControlGrp(attribute=joint+".rotateOrder", label=jointName)
+		cmds.scriptJob(attributeChange=[joint+".rotateOrder", partial(self.attributeChange_callbackMethod, joint, ".rotateOrder")], parent=attrControlGroup)
+		
+		
+	def attributeChange_callbackMethod(self, object, attribute, *args):
+		if cmds.checkBox(self.blueprint_UI_instance.UIElements["symmetryMoveCheckBox"], q=True, value=True):
+			moduleInfo = utils.stripLeadingNamespace(object)
+			module = moduleInfo[0]
+			objectName = moduleInfo[1]
+			
+			moduleGroup = module + ":module_grp"
+			if cmds.attributeQuery("mirrorLinks", n=moduleGroup, exists=True):
+				mirrorLinks = cmds.getAttr(moduleGroup+ ".mirrorLinks")
+				mirrorModule = mirrorLinks.rpartition("__")[0]
+				
+				newValue = cmds.getAttr(object+attribute)
+				mirrorObj = mirrorModule + ":" +objectName
+				cmds.setAttr(mirrorObj + attribute, newValue)
 		
 	def delete(self):
 		cmds.lockNode(self.containerName, lock=False, lockUnpublished=False)
@@ -615,12 +635,12 @@ class Blueprint():
 			moduleInst.rehook(None)
 			
 			
-		if cmds.attributeQuery("mirrorLinks", node=self.moduleNamespace+":module_group", exists=True):
+		if cmds.attributeQuery("mirrorLinks", node=self.moduleNamespace+":module_grp", exists=True):
 			mirrorLinks = cmds.getAttr(self.moduleNamespace+":module_grp.mirrorLinks")
 			
 			linkedBlueprint = mirrorLinks.rpartition("__")[0]
 			cmds.lockNode(linkedBlueprint+":module_container", lock=False, lockUnpublished=False)
-			cmds.deleteAttr(linkBlueprint+":module_grp.mirrorLinks")
+			cmds.deleteAttr(linkedBlueprint+":module_grp.mirrorLinks")
 			cmds.lockNode(linkedBlueprint+":module_container", lock=True, lockUnpublished=True )
 			
 		moduleTransform = self.moduleNamespace+":module_transform"

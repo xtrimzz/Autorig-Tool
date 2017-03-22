@@ -9,6 +9,7 @@ class Blueprint_UI:
 	def __init__(self):
 		
 		self.moduleInstance = None
+		self.deleteSymmetryMoveExpressions()
 		
 		#Store UI elements in a dictionary
 		self.UIElements = {}
@@ -107,7 +108,7 @@ class Blueprint_UI:
 		
 		cmds.text(label="")
 		self.UIElements["deleteModuleBtn"] = cmds.button(enable=False, label="Delete")
-		self.UIElements["symmetryMoveCheckBox"] = cmds.checkBox(enable=True, label="Symmetry Move")
+		self.UIElements["symmetryMoveCheckBox"] = cmds.checkBox(enable=True, label="Symmetry Move", onc=self.setupSymmetryMoveExpressions_Checkbox, ofc=self.deleteSymmetryMoveExpressions)
 		
 		cmds.setParent(self.UIElements["moduleColumn"])
 		cmds.separator()
@@ -177,6 +178,9 @@ class Blueprint_UI:
 		if result != "Accept":
 			return
 			
+		self.deleteSymmetryMoveExpressions()
+		cmds.checkBox(self.UIElements["symmetryMoveCheckBox"], edit=True, value=False)
+			
 		self.deleteScriptJob()
 		
 		moduleInfo = [] #store [module, userSpecifiedName] pairs
@@ -231,6 +235,9 @@ class Blueprint_UI:
 			
 	def modifySelected(self, *args):
 			
+			if cmds.checkBox(self.UIElements["symmetryMoveCheckBox"], q=True, value=True):
+				self.deleteSymmetryMoveExpressions()
+				self.setupSymmetryMoveExpressions()
 			
 			selectedNodes = cmds.ls(selection=True)
  			
@@ -314,13 +321,28 @@ class Blueprint_UI:
 				
 				
 	def deleteModule(self, *args):
+		symmetryMove = cmds.checkBox(self.UIElements["symmetryMoveCheckBox"], q=True, value=True)
+		if symmetryMove:
+			self.deleteSymmetryMoveExpressions()
+			
 		self.moduleInstance.delete()
 		cmds.select(clear=True)
+		
+		if symmetryMove: 
+			self.setupSymmetryMoveExpressions_Checkbox()
+			
 	
 	def renameModule(self, *args):
 		newName = cmds.textField(self.UIElements["moduleName"], q=True, text=True)
 		
+		symmetryMove = cmds.checkBox(self.UIElements["symmetryMoveCheckBox"], q=True, value=True)
+		if symmetryMove:
+			self.deleteSymmetryMoveExpressions()
+		
 		self.moduleInstance.renameModuleInstance(newName)
+		
+		if symmetryMove: 
+			self.setupSymmetryMoveExpressions_Checkbox()
 		
 		previousSelection = cmds.ls(selection=True)
 		
@@ -397,4 +419,152 @@ class Blueprint_UI:
 		import System.mirrorModule as mirrorModule
 		reload(mirrorModule)
 		mirrorModule.MirrorModule()
+	
+	def setupSymmetryMoveExpressions_Checkbox(self, *args):
+		self.deleteScriptJob()
 		
+		self.setupSymmetryMoveExpressions()
+		
+		self.createScriptJob()
+		
+	def setupSymmetryMoveExpressions(self, *args):
+		cmds.namespace(setNamespace=":")
+		selection = cmds.ls(selection=True, transforms=True)
+		expressionContainer = cmds.container(n="symmetryMove_container")
+		
+		if len(selection ) == 0:
+			return
+			
+		linkedObjs = []
+		for obj in selection:
+			if obj in linkedObjs:
+				continue
+			
+			#check if module is in a group
+			if obj.find("Group__") == 0:
+				if cmds.attributeQuery("mirrorLinks", n=obj, exists=True):
+					mirrorLinks = cmds.getAttr(obj+".mirrorLinks")
+					groupInfo = mirrorLinks.rpartition("__")
+					mirrorObj = groupInfo[0]
+					axis = groupInfo[2]
+					
+					linkedObjs.append(mirrorObj)
+					
+					self.setupSymmetryMoveForObject(obj, mirrorObj, axis, translation=True, orientation=True, globalScale=True)
+			
+			#not in a group	
+			else:
+				#does it belong to a module
+				objNamespaceInfo = utils.stripLeadingNamespace(obj)
+				if objNamespaceInfo != None:
+					#check if mirrorLinks is in module_grp
+					if cmds.attributeQuery("mirrorLinks", n=objNamespaceInfo[0]+":module_grp", exists=True):
+						mirrorLinks = cmds.getAttr(objNamespaceInfo[0] + ":module_grp.mirrorLinks")
+						
+						#split from the right base on "__"
+						moduleInfo = mirrorLinks.rpartition("__")
+						module = moduleInfo[0]
+						axis = moduleInfo[2]
+						
+						#Searching For the control types...
+						#The name of the node we have selected, select translation control
+						if objNamespaceInfo[1].find("translation_control") != -1:
+						
+							#find out the name of the obj to drive
+							mirrorObj = module + ":" +objNamespaceInfo[1]
+							
+							#put mirror object in linked obj
+							linkedObjs.append(mirrorObj)
+							#drive translation only
+							self.setupSymmetryMoveForObject(obj, mirrorObj, axis, translation=True, orientation=False, globalScale=False)
+						
+						#select the node for module transform
+						elif objNamespaceInfo[1].find("module_transform") == 0:
+							mirrorObj = module + ":module_transform"
+							#put mirror object in linked obj
+							linkedObjs.append(mirrorObj)
+							#drive translation and Rotate/Orientation only
+							self.setupSymmetryMoveForObject(obj, mirrorObj, axis, translation=True, orientation=True, globalScale=False)
+						elif objNamespaceInfo[1].find("orientation_control") != -1:
+							mirrorObj = module + ":" + objNamespaceInfo[1]
+							linkedObjs.append(mirrorObj)
+							
+							expressionString = mirrorObj + ".rotateX = "+ obj + ".rotateX; \n"
+							expression = cmds.expression(n=mirrorObj + "_symmetryMoveExpression", string=expressionString)
+							utils.addNodeToContainer(expressionContainer, expression)
+						elif objNamespaceInfo[1].find("singleJointOrientation_control") != -1:
+							mirrorObj = module + ":" + objNamespaceInfo[1]
+							linkedObjs.append(mirrorObj)
+							
+							expressionString += mirrorObj + ".rotateX = " + obj + ".rotateX; \n"
+							expressionString += mirrorObj + ".rotateY = " + obj + ".rotateY; \n"
+							expressionString += mirrorObj + ".rotateZ = " + obj + ".rotateZ; \n"
+							
+							expression = cmds.expression(n=mirrorObj+"_symmetryMoveExpression", string=expressionString)
+							utils.addNodeToContainer(expressionContainer, expression)
+				
+		cmds.lockNode(expressionContainer, lock=True)
+		cmds.select(selection, replace=True)
+		
+	def setupSymmetryMoveForObject(self, obj, mirrorObj, axis, translation=True, orientation=False, globalScale=False):
+		duplicateObject = cmds.duplicate(obj, parentOnly=True, inputConnections=True, name=obj+"_mirrorHelper")[0]
+		emptyGroup = cmds.group(empty=True, name=obj+"mirror_scale_grp")
+		cmds.parent(duplicateObject, emptyGroup, absolute=True)
+		
+		scaleAttribute = ".scale" + axis
+		cmds.setAttr(emptyGroup+scaleAttribute, -1)
+		
+		expressionString = "namespace -setNamespace \":\";\n"
+		if translation:
+			expressionString += "$worldSpacePos = `xform -q -ws -translation "+ obj + "`; \n"
+		if orientation:
+			expressionString += "$worldSpaceOrient = `xform -q -ws -rotation "+ obj +"`; \n"
+			
+		attrs =[]
+		if translation:
+			attrs.extend([".translateX", ".translateY", ".translateZ"])
+		if orientation:
+			attrs.extend([".rotateX", ".rotateY", ".rotateZ"])
+			
+		for attr in attrs:
+			expressionString += duplicateObject+attr+" = " +obj + attr + ";\n"
+		
+		i = 0
+		for axis in ["X", "Y", "Z"]:
+			if translation:
+				expressionString += duplicateObject+".translate"+axis+" = $worldSpacePos["+str(i)+"];\n"
+			if orientation:
+				expressionString += duplicateObject+".rotate"+axis+" = $worldSpaceOrient["+str(i)+"]; \n"
+			i += 1
+
+		if globalScale:
+			expressionString += duplicateObject+ ".globalScale = "+ obj + ".globalScale;\n" 
+		expression = cmds.expression(n=duplicateObject+"_symmetryMoveExpression", string=expressionString)
+		
+		constraint = ""
+		if translation and orientation:
+			constraint = cmds.parentConstraint(duplicateObject, mirrorObj, maintainOffset=False, n=mirrorObj+"_symmetryMoveConstraint")[0]
+		elif translation:
+			constraint = cmds.pointConstraint(duplicateObject, mirrorObj, maintainOffset=False, n=mirrorObj+"_symmetryMoveConstraint")[0]
+		elif orientation:
+			constraint = cmds.orientConstraint(duplicateObject, mirrorObj, maintainOffset=False, n=mirrorObj+"_symmetryMoveConstraint")[0]
+			
+		if globalScale:
+			cmds.connectAttr(duplicateObject+".globalScale", mirrorObj+".globalScale")
+		
+		utils.addNodeToContainer("symmetryMove_container", [duplicateObject, emptyGroup, expression, constraint], ihb=True)
+			
+		
+		
+	def deleteSymmetryMoveExpressions(self, *args):
+		container = "symmetryMove_container"
+		if cmds.objExists(container):
+			cmds.lockNode(container, lock=False)
+			
+			nodes = cmds.container(container, q=True, nodeList=True)
+			nodes = cmds.ls(nodes, type=["parentConstraint", "pointConstraint", "orientConstraint"])
+			
+			if len(nodes) > 0:
+				cmds.delete(nodes)
+				
+			cmds.delete(container)
