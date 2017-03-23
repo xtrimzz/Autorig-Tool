@@ -30,3 +30,31 @@ class Finger(blueprintMod.Blueprint):
 			cmds.setAttr(paControl+".axis", 3) # -veZ
 		if not self.mirrored:
 			cmds.setAttr(self.moduleNamespace+":module_transform.globalScale", 0.25)
+			
+	def mirror_custom(self, originalModule):
+		for i in range(len(self.jointInfo) - 1):
+			jointName = self.jointInfo[i][0]
+			originalJoint = originalModule+":"+jointName
+			newJoint = self.moduleNamespace+":"+jointName
+			
+			originalOrientationControl = self.getOrientationControl(originalJoint)
+			newOrientationControl = self.getOrientationControl(newJoint)
+			
+			cmds.setAttr(newOrientationControl+".rotateX", cmds.getAttr(originalOrientationControl+".rotateX"))
+			
+			originalPreferredAngleControl = self.getPreferredAngleControl(originalJoint)
+			newPrefferedAngleControl = self.getPreferredAngleControl(newJoint)
+			
+			cmds.setAttr(newPrefferedAngleControl+".axis", cmds.getAttr(originalPreferredAngleControl+".axis"))
+			
+		
+	def UI_custom(self):
+		joints = self.getJoints()
+		joints.pop()
+		
+		for joint in joints:
+			self.createRotationOrderUIControl(joint)
+			
+		for joint in joints:
+			self.createPreferredAngleUIControl(self.getPreferredAngleControl(joint))
+			

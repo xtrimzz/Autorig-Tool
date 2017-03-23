@@ -1021,4 +1021,16 @@ class Blueprint():
 		utils.addNodeToContainer(container, containedNodes)
 		
 		return control
-			
+		
+	def getPreferredAngleControl(self, jointName):
+		return jointName + "_preferredAngle_representation"
+	
+	def createPreferredAngleUIControl(self, preferredAngle_representation):
+		label = utils.stripLeadingNamespace(preferredAngle_representation)[1].partition("_representation")[0]
+		enumOptionMenu = cmds.attrEnumOptionMenu(label=label, at=preferredAngle_representation+".axis")
+		cmds.scriptJob(attributeChange=[preferredAngle_representation+".axis", partial(self.attributeChange_callbackMethod, preferredAngle_representation, ".axis")], parent=enumOptionMenu)
+		
+		
+		
+		
+		
