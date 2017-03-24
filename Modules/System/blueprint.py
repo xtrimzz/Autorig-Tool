@@ -49,7 +49,7 @@ class Blueprint():
 		#jointOrientations = a list of orientations, or a list of axis information (orientJoint and secondaryAxisOrient for the joint cmd)
 		#					#These are passed in the followint tuple: (orientations, None) or (None, axisInfo)
 		#jointRotationOrders = a list of joint rotation orders (integers values gathered with getAttr)
-		#jointPreferredAngles = a list of joint prefered angles, optional (can pass None)
+		#jointPreferredAngles = a list of joint preferred angles, optional (can pass None)
 		#hookObject = self.findHookObjectForLock()
 		#rootTransform = a bool, either True or False. True =R, T and S on root joint. False = R only.
 		#
@@ -412,7 +412,7 @@ class Blueprint():
 		jointPreferredAngles = moduleInfo[3]
 		numPreferredAngles = 0
 		if jointPreferredAngles != None:
-			numPreferredAngles = len(jointPreferedAngles)
+			numPreferredAngles = len(jointPreferredAngles)
 			
 		hookObject = moduleInfo[4]
 		
