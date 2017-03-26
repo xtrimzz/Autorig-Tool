@@ -1063,5 +1063,5 @@ class Blueprint():
 		
 		
 	def getSingleJointOrientationControl(self, jointName):
-		return jointNsme+"_singleJointOrientation_control"
+		return jointName+"_singleJointOrientation_control"
 		
