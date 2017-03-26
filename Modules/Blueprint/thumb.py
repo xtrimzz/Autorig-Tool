@@ -12,7 +12,7 @@ reload(utils)
 CLASS_NAME = "Thumb"
 
 TITLE = "Thumb"
-DESCRIPTION = "Create 4 joints, defining a finger. Ideal use: thumb"
+DESCRIPTION = "Create 4 joints, defining a thumb. Ideal use: thumb"
 ICON = os.environ["RIGGING_TOOL_ROOT"] + "/Icons/_thumb.xpm"
 
 class Thumb(finger.Finger):
