@@ -260,3 +260,97 @@ def doesBlueprintUserSpecifiedNameExist(name):
 			names.append(namespace.partition("__")[2])
 			
 	return name in names
+	
+	
+	
+	'''
+	Rotate Plain for two segment stretchy IK
+	
+	@param {string} rootJoint
+	@param {string} endJoint
+	@param {bool} container
+	@param {bool} scaleCorrectionAttribute
+	@return
+	'''
+def RP_2segment_stretchy_IK(rootJoint, hingeJoint, endJoint, container=None, scaleCorrectionAttribute=None):
+	moduleNamespaceInfo = stripAllNamespaces(rootJoint)
+	moduleNamespace = ""
+	if moduleNamespaceInfo != None:
+		moduleNamespace = moduleNamespaceInfo[0]
+	
+	rootLocation = cmds.xform(rootJoint, q=True, worldSpace=True, translation=True)
+	elbowLocation = cmds.xform(hingeJoint, q=True, worldSpace=True, translation=True)
+	endLocation = cmds.xform(endJoint, q=True, worldSpace=True, translation=True)
+	
+	ikNodes = cmds.ikHandle(sj=rootJoint, ee=endJoint, n=rootJoint+"_ikHandle", solver="ikRPsolver")
+	ikNodes[1] = cmds.rename(ikNodes[1], rootJoint+"_ikEffector")
+	ikEffector = ikNodes[1]
+	ikHandle = ikNodes[0]
+	
+	cmds.setAttr(ikHandle + ".visibility", 0)
+	rootLoc = cmds.spaceLocator(n=rootJoint+"_positionLocator")[0]
+	cmds.xform(rootLoc, worldSpace=True, absolute=True, translation=rootLocation)
+	cmds.parent(rootJoint, rootLoc, absolute=True)
+	
+	endLoc = cmds.spaceLocator(n=ikHandle+"_positionLocator")[0]
+	cmds.xform(endLoc, worldSpace=True, absolute=True, translation=endLocation)
+	cmds.parent(ikHandle, endLoc, absolute=True)
+	
+	elbowLoc = cmds.spaceLocator(n=hingeJoint+"_positionLocator")[0]
+	cmds.xform(elbowLoc, worldSpace=True, absolute=True, translation=elbowLocation)
+	elbowLocConstraint = cmds.poleVectorConstraint(elbowLoc, ikHandle)[0]
+	
+	
+	utilityNodes = []
+	for locators in ((rootLoc, elbowLoc, hingeJoint),(elbowLoc, endLoc, endJoint)):
+		from math import fabs
+		
+		startLocNamespaceInfo = stripAllNamespaces(locators[0])
+		startLocWithoutNamespace = ""
+		if startLocNamespaceInfo != None:
+			startLocWithoutNamespace = startLocNamespaceInfo[1]
+		
+		endLocNamespaceInfo = stripAllNamespaces(locators[1])
+		endLocWithoutNamespace = ""
+		if endLocNamespaceInfo != None:
+			endLocWithoutNamespace = endLocNamespaceInfo[1]
+			
+		startLocShape = locators[0] + "Shape"
+		endLocShape = locators[1] + "Shape"
+		
+		distNode = cmds.shadingNode("distanceBetween", asUtility=True, name=moduleNamespace+":distBetween_"+startLocWithoutNamespace+"_"+endLocWithoutNamespace)
+		
+		cmds.connectAttr(startLocShape+".worldPosition[0]", distNode+".point1")
+		cmds.connectAttr(endLocShape+".worldPosition[0]", distNode+".point2")
+		
+		utilityNodes.append(distNode)
+		
+		scaleFactor = cmds.shadingNode("multiplyDivide", asUtility=True, n=distNode+"_scaleFactor")
+		utilityNodes.append(scaleFactor)
+		
+		cmds.setAttr(scaleFactor + ".operation", 2) #divide
+		originalLength = cmds.getAttr(locators[2]+".translateX")
+		
+		cmds.connectAttr(distNode+".distance", scaleFactor+".input1X")
+		cmds.setAttr(scaleFactor+".input2X", originalLength)
+		
+		translationDriver = scaleFactor+".outputX"
+		
+		
+		translateX = cmds.shadingNode("multiplyDivide", asUtility=True, n=distNode+"_translationValue")
+		utilityNodes.append(translateX)
+		cmds.setAttr(translateX+".input1X", fabs(originalLength))
+		cmds.connectAttr(translationDriver, translateX+".input2X")
+		
+		cmds.connectAttr(translateX+".outputX", locators[2]+".translateX")
+		
+	if container != None:
+		containedNodes = list(utilityNodes)
+		containedNodes.extend(ikNodes)
+		containedNodes.extend( [rootLoc, elbowLoc, endLoc] )
+		containedNodes.append(elbowLocConstraint)
+		
+		addNodeToContainer(container, containedNodes, ihb=True)
+
+	return (rootLoc, elbowLoc, endLoc, utilityNodes)
+		
