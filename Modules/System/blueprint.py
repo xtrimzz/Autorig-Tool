@@ -60,7 +60,7 @@ class Blueprint():
 	def UI_custom(self):
 		temp = 1
 	
-	def mirror_custom(self):
+	def mirror_custom(self, originalModule):
 		print "mirror_custom() method is not implemented by derived class"
 	
 	#Baseclass Methods	
