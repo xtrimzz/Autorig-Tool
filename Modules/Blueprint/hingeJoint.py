@@ -129,7 +129,7 @@ class HingeJoint(blueprintMod.Blueprint):
 			
 			jointPositions.append(cmds.xform(ikJointName, q=True, worldSpace=True, translation=True))
 			
-			jointRotationOrders.append(cmds.getAttr(self.moduleNamespace+":"+jointName+".rotationOrder"))
+			jointRotationOrders.append(cmds.getAttr(self.moduleNamespace+":"+jointName+".rotateOrder"))
 			
 			if i < 2:
 				jointOrientX = cmds.getAttr(ikJointName+".jointOrientX")
