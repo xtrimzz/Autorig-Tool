@@ -1,5 +1,5 @@
 import maya.cmds as cmds
-
+import os
 from functools import partial
 
 import System.utils as utils
@@ -36,7 +36,10 @@ class Blueprint_UI:
 		
 		self.initializeModuleTab(tabHeight, tabWidth)
 		
-		cmds.tabLayout(self.UIElements["tabs"], edit = True, tabLabelIndex=([1, "Modules"]))
+		cmds.setParent(self.UIElements["tabs"])
+		self.initialiseTemplatesTab(tabHeight, tabWidth)
+		
+		cmds.tabLayout(self.UIElements["tabs"], edit = True, tabLabelIndex=([1, "Modules"], [2, "Templates"]))
 		
 		
 		cmds.setParent(self.UIElements["topLevelColumn"])
@@ -568,3 +571,317 @@ class Blueprint_UI:
 				cmds.delete(nodes)
 				
 			cmds.delete(container)
+			
+	def initialiseTemplatesTab(self, tabHeight, tabWidth):
+		self.UIElements["templatesColumn"] = cmds.columnLayout(adj=True, rs=3, columnAttach=["both", 0])
+		
+		self.UIElements["templatesFrameLayout"] = cmds.frameLayout(height=(tabHeight - 104), collapsable=False, borderVisible=False, labelVisible=False)
+		self.UIElements["templateList_Scroll"] = cmds.scrollLayout(hst=0)
+		self.UIElements["templateList_column"] = cmds.columnLayout(adj=True, rs=2)
+		
+		cmds.separator()
+		for template in utils.findAllMayaFiles("/Templates"):
+			cmds.setParent(self.UIElements["templateList_column"])
+			templateAndPath = os.environ["RIGGING_TOOL_ROOT"] + "/Templates/" + template + ".ma"
+			self.createTemplateInstallButton(templateAndPath)
+			
+		cmds.setParent(self.UIElements["templatesColumn"])
+		cmds.separator()
+		self.UIElements["prepareTemplateBtn"] = cmds.button(label="prepare for Template", c=self.prepareForTemplate)
+		cmds.separator()
+		self.UIElements["saveCurrentBtn"] = cmds.button(label="Save current as Template", c=self.saveCurrentAsTemplate)
+		cmds.separator()
+		
+	
+	def prepareForTemplate(self, *args):
+		cmds.select(all=True)
+		rootLevelNodes = cmds.ls(selection=True, transforms=True)
+		
+		filteredNodes = []
+		for node in rootLevelNodes:
+			if node.find("Group__") == 0:
+				filteredNodes.append(node)
+			else:
+				nodeNamespaceInfo = utils.stripAllNamespaces(node)
+				if nodeNamespaceInfo != None:
+					if nodeNamespaceInfo[1] == "module_transform":
+						filteredNodes.append(node)
+		if len(filteredNodes) > 0:
+			cmds.select(filteredNodes, replace=True)
+			self.groupSelected()
+		
+	def saveCurrentAsTemplate(self, *args):
+		self.SaveTemplateUIElements = {}
+		
+		if cmds.window("saveTemplate_UI_window", exists=True):
+			cmds.deleteUI("saveTemplate_UI_window")
+		
+		windowWidth = 300
+		windowHeight = 152
+		self.SaveTemplateUIElements["window"] = cmds.window("saveTemplate_UI_window", width=windowWidth, height=windowHeight, title="Save current as Template", sizeable=False)
+		
+		self.SaveTemplateUIElements["topLevelColumn"] = cmds.columnLayout(adj=True, columnAlign="center", rs=3)
+		self.SaveTemplateUIElements["templateName_rowColumn"] = cmds.rowColumnLayout(nc=2, columnAttach=(1,"right", 0), columnWidth=[(1,90), (2,windowWidth-100)] )
+		
+		cmds.text(label="Template Name: ")
+		self.SaveTemplateUIElements["templateName"] = cmds.textField(text="[a-z][A-Z][0-9] and _ only")
+		
+		cmds.text(label="Title: ")
+		self.SaveTemplateUIElements["templateTitle"] = cmds.textField(text="Title")
+		
+		cmds.text(label="Description: ")
+		self.SaveTemplateUIElements["templateDescription"] = cmds.textField(text="Description")
+		
+		cmds.text(label="Icon: ")
+		self.SaveTemplateUIElements["templateIcon"] = cmds.textField(text="[programRoot]/Icons/_icon.xpm")
+		
+		cmds.showWindow(self.SaveTemplateUIElements["window"])
+		
+		cmds.setParent(self.SaveTemplateUIElements["topLevelColumn"])
+		cmds.separator()
+		
+		columnWidth = (windowWidth/2) - 5
+		self.SaveTemplateUIElements["button_row"] = cmds.rowLayout(nc=2, columnWidth=[(1, columnWidth), (2,columnWidth)], cat=[(1, "both", 10), (2,"both", 10)], columnAlign=[(1,"center"),(2,"center")])
+		
+		cmds.button(label="Accept", c=self.saveCurrentAsTemplate_AcceptWindow)
+		cmds.button(label="Cancel", c=self.saveCurrentAsTemplate_CancelWindow)
+		
+		cmds.showWindow(self.SaveTemplateUIElements["window"])
+		
+	def saveCurrentAsTemplate_CancelWindow(self, *args):
+		cmds.deleteUI(self.SaveTemplateUIElements["window"])
+		
+	def saveCurrentAsTemplate_AcceptWindow(self, *args):
+		templateName = cmds.textField(self.SaveTemplateUIElements["templateName"], q=True, text=True)
+		
+		programRoot = os.environ["RIGGING_TOOL_ROOT"]
+		templateFileName = programRoot + "/Templates/"+templateName+".ma"
+		
+		if os.path.exists(templateFileName):
+			cmds.confirmDialog(title="Save Current as Template", message="Template already exists with that name. Aborting save.", button=["Accept"], defaultButton="Accept") 
+			return
+			
+		if cmds.objExists("Group_container"):
+			cmds.select("Group_container", replace=True)
+		else:
+			cmds.select(clear=True)
+		
+		cmds.namespace(setNamespace=":")
+		namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+		
+		for n in namespaces:
+			if n.find("__") != -1:
+				cmds.select(n+":module_container", add=True)
+				
+		cmds.file(templateFileName, exportSelected=True, type="mayaAscii")
+		cmds.select(clear=True)
+		
+		title = cmds.textField(self.SaveTemplateUIElements["templateTitle"], q=True, text=True)
+		description = cmds.textField(self.SaveTemplateUIElements["templateDescription"], q=True, text=True)
+		icon = cmds.textField(self.SaveTemplateUIElements["templateIcon"], q=True, text=True)
+		
+		if icon.find("programRoot") != -1:
+			icon = programRoot + icon.partition("[programRoot]")[2]
+			
+		templateDescriptionFileName = programRoot + "/Templates/" + templateName + ".txt"
+		f = open(templateDescriptionFileName, "w")
+		
+		f.write(title + "\n")
+		f.write(description + "\n")
+		f.write(icon + "\n")
+		
+		f.close()
+		
+		cmds.deleteUI(self.SaveTemplateUIElements["window"])
+		
+	def createTemplateInstallButton(self, templateAndPath):
+		buttonSize = 64
+		
+		templateDescriptionFile = templateAndPath.partition(".ma")[0] + ".txt"
+		
+		f=open(templateDescriptionFile, "r")
+		title = f.readline()[0:-1]
+		description = f.readline()[0:-1]
+		icon = f.readline()[0:-1]
+		
+		f.close()
+		
+		row = cmds.rowLayout(width=self.scrollWidth+300, nc=2, columnWidth=([1, buttonSize], [2, self.scrollWidth]), adj=2, columnAttach=([1,"both", 0],[2,"both", 5]))
+		
+		self.UIElements["template_button_"+ templateAndPath] = cmds.symbolButton(width=buttonSize, height=buttonSize, image=icon, command = partial(self.installTemplate, templateAndPath))
+		
+		textColumn = cmds.columnLayout(columnAlign="center")
+		cmds.text(align="center", width=self.scrollWidth, label=title)
+		cmds.scrollField(text=description, editable=False, width=self.scrollWidth, wordWrap=True)
+		
+		cmds.setParent(self.UIElements["templateList_column"])
+		cmds.separator()
+			
+		
+	def installTemplate(self, templateAndPath, *args):
+		cmds.file(templateAndPath, i=True, namespace="TEMPLATE_1")
+		
+		self.resolveNamespaceClashes("TEMPLATE_1")
+		
+		groupContainer = "TEMPLATE_1:Group_container"
+		if cmds.objExists(groupContainer):
+			self.resolveGroupNameClashes("TEMPLATE_1")
+			
+			
+			cmds.lockNode(groupContainer, lock=False, lockUnpublished=False)
+			
+			oldGroupContainer = "Group_container"
+			if cmds.objExists(oldGroupContainer):
+				cmds.lockNode(oldGroupContainer, lock=False, lockUnpublished=False)
+				
+				nodeList = cmds.container(groupContainer, q=True, nodeList=True)
+				utils.addNodeToContainer(oldGroupContainer, nodeList, force=True)
+				
+				
+				cmds.delete(groupContainer)
+			else:
+				cmds.rename(groupContainer, oldGroupContainer)
+				
+			cmds.lockNode("Group_container", lock=True, lockUnpublished=True)
+			
+		cmds.namespace(setNamespace=":")
+		cmds.namespace(moveNamespace=("TEMPLATE_1",":"), force=True)
+		cmds.namespace(removeNamespace="TEMPLATE_1")
+		
+	def resolveNamespaceClashes(self, tempNamespace):
+		returnNames = []
+		
+		cmds.namespace(setNamespace=tempNamespace)
+		namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+		cmds.namespace(setNamespace=":")
+		existingNamespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+		
+		for i in range(len(namespaces)):
+			namespaces[i] = namespaces[i].partition(tempNamespace+":")[2]
+			
+		for name in namespaces:
+			newName = str(name)
+			oldName = tempNamespace + ":" + name
+			
+			if name in existingNamespaces:
+				highestSuffix = utils.findHighestTrailingNumber(existingNamespaces, name+"_")
+				highestSuffix += 1
+				
+				newName = str(name) + "_" + str(highestSuffix)
+				
+			returnNames.append([oldName, newName])
+			
+		self.resolveNameChangeMirrorLinks(returnNames, tempNamespace)
+		
+		self.renameNamespaces(returnNames)
+		
+		return returnNames
+		
+	def renameNamespaces(self, names):
+		for name in names:
+			oldName = name[0]
+			newName = name[1]
+			
+			cmds.namespace(setNamespace=":")
+			cmds.namespace(add=newName)
+			cmds.namespace(moveNamespace=[oldName, newName])
+			cmds.namespace(removeNamespace=oldName)
+			
+	def resolveNameChangeMirrorLinks(self, names, tempNamespace):
+		moduleNamespaces = False
+		firstOldNode = name[0][0]
+		if utils.stripLeadingNamespace(firstOldNode)[1].find("Group__") == -1:
+			moduleNamespaces = True
+			
+		for n in names:
+			oldNode = n[0]
+			if moduleNamespaces:
+				oldNode += ":module_grp"
+				
+			if cmds.attributeQuery("mirrorLinks", n=oldNode, exists=True):
+				mirrorLinks = cmds.getAttr(oldNode+".mirrorLinks")
+				mirrorLinkInfo = mirrorLink.rpartition("__")
+				mirrorNode = mirrorLinkInfo[0]
+				mirrorAxis = mirrorLinkInfo[2]
+				
+				found = False
+				
+				container = ""
+				if moduleNamespaces:
+					oldNodeNamespace = n[0]
+					container = oldNamespace + ":module_container"
+				else:
+					container = tempNamespace + ":Group_container"
+					
+				for nm in names:
+					oldLink = nm[0].partition(tempNamespace+":")[2]
+					if oldLink == mirrorNode:
+						newLink = nm[1]
+						
+						if cmds.objExists(container):
+							cmds.lockNode(container, lock=False, lockUnpublished=False)
+						
+						cmds.setAttr(oldNode+".mirrorLinks", newLink+"__"+mirrrorAxis, type="string")
+						
+						if cmds.objExists(container):
+							cmds.lockNode(container, lock=True, lockUnpublished=True)
+						
+						found = True
+						break
+						
+				if not found:
+					if cmds.objExists(container):
+						cmds.lockNode(container, lock=False, lockUnpublished=False)
+						
+					cmds.deleteAttr(oldNode, at="mirrorLinks")
+					
+					if cmds.objExists(container):
+						cmds.lockNode(container, lock=True, lockUnpublished=True)
+						
+			
+	def resolveGroupNameClashes(self, tempNamespace):
+		cmds.namespace(setNamespace = tempNamespace)
+		dependencyNodes = cmds.namespaceInfo(listOnlyDependencyNodes=True)
+		
+		cmds.namespace(setNamespace=":")
+		
+		transforms = cmds.ls(dependencyNodes, transforms=True)
+		
+		groups = []
+		for node in transforms:
+			if node.find(tempNamespace+":Group__") == 0:
+				groups.append(node)
+				
+		if len(groups)  == 0:
+			return groups
+		
+		groupNames = []
+		for group in groups:
+			groupName = group.partition(tempNamespace+":")[2]
+			newGroupName = str(groupName)
+			
+			if cmds.objExists(newGroupName):
+				existingGroups = cmds.ls("Group__*", transforms=True)
+				
+				highestSuffix = utils.findHighestTrailingNumber(existingGroups, groupName+"_")
+				hightSuffix += 1
+				
+				newGroupName = str(groupName) + "_" + str(highestSuffix)
+				
+			groupNames.append([group, newGroupName])
+			
+		self.resolveNameChangeMirrorLinks(groupNames, tempNamespace)
+		
+		groupContainer = tempNamespace+"Group_container"
+		if cmds.objExists(groupContainer):
+			cmds.lockNode(groupContainer, lock=False, lockUnpublished=False)
+		
+		for name in groupName:
+			cmds.rename(name[0], name[1])
+		
+		if cmds.objExists(groupContainer):
+			cmd.lockNode(groupContainer, lock=True, lockUnpublished=True)
+			
+		return groupNames
+			
+						
