@@ -39,16 +39,20 @@ class Blueprint_UI:
 		cmds.setParent(self.UIElements["tabs"])
 		self.initialiseTemplatesTab(tabHeight, tabWidth)
 		
-		cmds.tabLayout(self.UIElements["tabs"], edit = True, tabLabelIndex=([1, "Modules"], [2, "Templates"]))
+		scenePublished = cmds.objExists("Scene_Published")
+		sceneUnlocked = not cmds.objExists("Scene_Locked") and not scenePublished
+		
+		
+		cmds.tabLayout(self.UIElements["tabs"], edit = True, tabLabelIndex=([1, "Modules"], [2, "Templates"]), enable=sceneUnlocked)
 		
 		
 		cmds.setParent(self.UIElements["topLevelColumn"])
 		self.UIElements["lockPulishColumn"] = cmds.columnLayout(adj=True, columnAlign="center", rs=3)
 		
 		cmds.separator()
-		self.UIElements["lockBtn"] = cmds.button(label="Lock", c=self.lock)
+		self.UIElements["lockBtn"] = cmds.button(label="Lock", c=self.lock, enable=sceneUnlocked)
 		cmds.separator()
-		self.UIElements["publishBtn"] = cmds.button(label="Publish")
+		self.UIElements["publishBtn"] = cmds.button(label="Publish", enable=not sceneUnlocked and not scenePublished)
 		cmds.separator()
 		
 		
@@ -109,7 +113,8 @@ class Blueprint_UI:
 		self.UIElements["ungroupBtn"] = cmds.button(enable=False, label="Ungroup", c=self.ungroupSelected)
 		self.UIElements["mirrorModuleBtn"] = cmds.button(enable=False, label="Mirror Module",  c=self.mirrorSelection)
 		
-		cmds.text(label="")
+		
+		self.UIElements["duplicateModuleBtn"] = cmds.button(enable=True, label="Duplicate", c=self.duplicateModule)
 		self.UIElements["deleteModuleBtn"] = cmds.button(enable=False, label="Delete")
 		self.UIElements["symmetryMoveCheckBox"] = cmds.checkBox(enable=True, label="Symmetry Move", onc=self.setupSymmetryMoveExpressions_Checkbox, ofc=self.deleteSymmetryMoveExpressions)
 		
@@ -174,8 +179,21 @@ class Blueprint_UI:
 		cmds.select(moduleTransform, replace=True)
 		cmds.setToolTo("moveSuperContext")
 	
-	def lock(self, *args):
+	def isRootTransformInstalled(self):
+		cmds.namespace(setNamespace=":")
+		namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
 		
+		for namespace in namespaces:
+			if namespace.find("RootTransform__")  == 0:
+				return True
+		return False
+		
+	def lock(self, *args):
+		if not self.isRootTransformInstalled():
+			result = cmds.confirmDialog(messageAlign="center", title="Lock Character", message="We have detected that you dont have a root transform (global control) instance.\nWould you like to go back and edit your blueprint setup?\n (It is recommended that all rigs have at least one global control module).", button=["Yes", "No"], defaultButton="Yes", dismissString="Yes")
+			if result == "Yes":
+				return
+			
 		result = cmds.confirmDialog(messageAlign="center", title="Lock Blueprints", message="The action of locking a character will convert the current blueprint modules to joints. \nThis action cannot be undone. \nModifications to the blueprint system cannot be made after this point. \n Do you want to continue?", button=["Accept", "Cancel"], defaultButton="Accept", cancelButton="Cancel", dismissString="Cancel")
 		
 		if result != "Accept":
@@ -235,6 +253,19 @@ class Blueprint_UI:
 		for module in moduleInstances:
 			hookObject = module[1][4]
 			module[0].lock_phase3(hookObject)
+			
+			
+		sceneLockedLocator = cmds.spaceLocator(n="Scene_Locked")[0]
+		cmds.setAttr(sceneLockedLocator+".visibility", 0)
+		cmds.lockNode(sceneLockedLocator, lock=True, lockUnpublished=True)
+		
+		cmds.select(clear=True)
+		self.modifySelected()
+		
+		cmds.tabLayout(self.UIElements["tabs"], edit=True, enable=False)
+		cmds.button(self.UIElements["lockBtn"], edit=True, enable=False)
+		cmds.button(self.UIElements["publishBtn"], edit=True, enable=True)
+		
 			
 	def modifySelected(self, *args):
 			
@@ -746,6 +777,7 @@ class Blueprint_UI:
 			
 		cmds.namespace(setNamespace=":")
 		cmds.namespace(moveNamespace=("TEMPLATE_1",":"), force=True)
+		
 		cmds.namespace(removeNamespace="TEMPLATE_1")
 		
 	def resolveNamespaceClashes(self, tempNamespace):
@@ -789,7 +821,7 @@ class Blueprint_UI:
 			
 	def resolveNameChangeMirrorLinks(self, names, tempNamespace):
 		moduleNamespaces = False
-		firstOldNode = name[0][0]
+		firstOldNode = names[0][0]
 		if utils.stripLeadingNamespace(firstOldNode)[1].find("Group__") == -1:
 			moduleNamespaces = True
 			
@@ -864,7 +896,7 @@ class Blueprint_UI:
 				existingGroups = cmds.ls("Group__*", transforms=True)
 				
 				highestSuffix = utils.findHighestTrailingNumber(existingGroups, groupName+"_")
-				hightSuffix += 1
+				highestSuffix += 1
 				
 				newGroupName = str(groupName) + "_" + str(highestSuffix)
 				
@@ -885,3 +917,122 @@ class Blueprint_UI:
 		return groupNames
 			
 						
+	def duplicateModule(self, *args):
+		modules = set([])
+		groups = set([])
+		
+		selection = cmds.ls(selection=True, transforms=True)
+		
+		if len(selection) == 0:
+			return 
+			
+		for node in selection:
+			selectionNamespaceInfo = utils.stripLeadingNamespace(node)
+			if selectionNamespaceInfo != None:
+				if selectionNamespaceInfo[0].find("__") != -1:
+					modules.add(selectionNamespaceInfo[0])
+					
+			else:
+				if node.find("Group__") == 0:
+					groups.add(node)
+		for group in groups:
+			moduleInfo = self.duplicateModule_processGroup(group)
+			for module in moduleInfo:
+				modules.add(module)
+		
+		if len(groups) > 0:
+			groupSelection = list(groups)
+			cmds.select(groupSelection, replace=True, hi=True)
+		
+		else:
+			cmds.select(clear=True)
+			
+		for module in modules:
+			cmds.select(module+":module_container", add=True)
+			
+		if len(groups) > 0:
+
+			cmds.lockNode("Group_container", lock=False, lockUnpublished=False)
+		elif len(modules) == 0:
+			return
+		
+		duplicateFileName = os.environ["RIGGING_TOOL_ROOT"] + "/__duplicationCache.ma"
+		cmds.file(duplicateFileName, exportSelected=True, type="mayaAscii", force=True)
+		
+		if len(groups) > 0:
+			cmds.lockNode("Group_container", lock=True, lockUnpublished=True)
+		
+		self.installDuplicate(duplicateFileName, selection)
+		
+		cmds.setToolTo("moveSuperContext")
+	
+	def installDuplicate(self, duplicatePath, selection, *args):
+		cmds.file(duplicatePath, i=True, namespace="TEMPLATE_1")
+		
+		moduleNames = self.resolveNamespaceClashes("TEMPLATE_1")
+		
+		groupNames = self.resolveGroupNameClashes("TEMPLATE_1")
+		
+		groups = []
+		for name in groupNames:
+			groups.append(name[1])
+			
+		if len(groups) > 0:
+			sceneGroupContainer = "Group_container"
+			cmds.lockNode(sceneGroupContainer, lock=False, lockUnpublished=False)
+			
+			utils.addNodeToContainer(sceneGroupContainer, groups, includeShapes=True, force=True)
+			
+			for group in groups:
+				groupNiceName = group.partition("__")[2]
+				cmds.container(sceneGroupContainer, edit=True, publishAndBind = [group+".translate", groupNiceName+"_t"])
+				cmds.container(sceneGroupContainer, edit=True, publishAndBind = [group+".rotate", groupNiceName+"_r"])
+				cmds.container(sceneGroupContainer, edit=True, publishAndBind = [group+".globalScale", groupNiceName+"_globalScale"])
+			
+			cmds.lockNode(setNamespace=":")
+			
+			cmds.namespace(moveNamespace=("TEMPLATE_1", ":"), force=True)
+			cmds.namespace(removeNamespace="TEMPLATE_1")
+			
+			newSelection = []
+			for node in selection:
+				found = False
+				for group in groupNames:
+					oldName = group[0].partition("TEMPLATE_1:")[2]
+					newName = group[1]
+					
+					if node == oldName:
+						newSelection.append(newName)
+						found = True
+						break
+					
+				if not found:
+					nodeNamespaceInfo = utils.stripLeadingNamespace(node)
+					if nodeNamespaceInfo != None:
+						nodeNamespace = nodeNamespaceInfo[0]
+						nodeName = nodeNamespaceInfo[1]
+						
+						searchName = "TEMPLATE_1:" +nodeNamespace
+						
+						for module in moduleNames:
+							if module[0] == searchName:
+								newSelection.append(module[1] + ":" +nodeName)
+								
+			if len(newSelection) > 0:
+				cmds.select(newSelection, replace=True)
+			
+	def duplicateModule_processGroup(self, group):
+		returnModules = []
+		
+		children = cmds.listRelatives(group, children=True, type="transform")
+		
+		for c in children:
+			selectionNamespaceInfo = utils.stripLeadingNamespace(c)
+			if selectionNamespaceInfo != None:
+				returnModules.append(selectionNamespaceInfo[0])
+				
+			else:
+				if c.find("Group__") == 0:
+					returnModules.extend(self.duplicateModule_processGroup(c))
+					
+		return returnModules
