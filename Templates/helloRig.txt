@@ -1,0 +1,3 @@
+rigDis
+Another Description
+C:/Projects/RiggingTool/Icons/_finger.xpm

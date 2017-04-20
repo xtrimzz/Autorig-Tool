@@ -1,0 +1,3 @@
+wTF
+Description id grood
+C:/Projects/RiggingTool/Icons/_icon.xpm

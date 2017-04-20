@@ -375,3 +375,27 @@ def findJointChain(rootJoint):
 			parent = child
 	
 	return joints
+	
+def findInstalledCharacters():
+	cmds.namespace(setNamespace=":")
+	namespaces = cmds.namespaceInfo(listOnlyNamespaces=True)
+	
+	characterNamespaces = []
+	
+	for n in namespaces:
+		if n.find("Character__") == 0:
+			characterNamespaces.append(n)
+	
+	return characterNamespaces
+	
+def findInstalledBlueprintInstances(characterNamespace):
+	cmds.namespace(setNamespace=characterNamespace)
+	moduleInstances = cmds.namespaceInfo(listOnlyNamespaces=True)
+	returnModuleInstances = []
+	
+	for module in moduleInstances:
+		returnModuleInstances.append( stripLeadingNamespace(module)[1] )
+	
+	cmds.namespace(setNamespace = ":")
+	
+	return returnModuleInstances

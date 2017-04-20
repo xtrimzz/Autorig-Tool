@@ -1,0 +1,3 @@
+Title
+Description
+C:/Projects/RiggingTool/Icons/_hinge.xpm
