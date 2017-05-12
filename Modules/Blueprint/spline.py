@@ -17,8 +17,11 @@ class Spline(blueprintMod.Blueprint):
 
 	def __init__(self, userSpecifiedName, hookObject, numberOfJoints=None, startJointPos=None, endJointPos=None):
 		
+		
 		if numberOfJoints == None:
+		#if joint group being created
 			jointsGrp = CLASS_NAME + "__" + userSpecifiedName + ":joints_grp"
+			
 			if not cmds.objExists(jointsGrp):
 				numberOfJoints = 5 #default val
 			else:
